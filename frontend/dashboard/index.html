@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ShadowCoder — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0b0f;--surface:#12141a;--surface2:#1a1d26;--surface3:#222638;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --green:#00ff88;--green2:#00c96a;--green-glow:rgba(0,255,136,0.12);
+  --red:#ff3b5c;--orange:#ff8c00;--yellow:#ffd60a;--blue:#4d9fff;--purple:#a855f7;
+  --text:#f0f2f8;--text2:#8b92a8;--text3:#4a5068;
+  --font-sans:'Inter',sans-serif;--font-display:'Syne',sans-serif;--font-mono:'IBM Plex Mono',monospace;
+  --radius:8px;--radius2:12px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-sans);overflow:hidden}
+#root{height:100%}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ── API client ─────────────────────────────────────────────────────────────
+const API = {
+  token: localStorage.getItem('sc_token'),
+  setToken(t) { this.token = t; localStorage.setItem('sc_token', t); },
+  clearToken() { this.token = null; localStorage.removeItem('sc_token'); },
+  async req(method, path, body) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+    const res = await fetch(`/api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    if (res.status === 401) { this.clearToken(); window.location.reload(); return null; }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+    return data;
+  },
+  get: (p) => API.req('GET', p),
+  post: (p, b) => API.req('POST', p, b),
+  patch: (p, b) => API.req('PATCH', p, b),
+  delete: (p) => API.req('DELETE', p),
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const fmt = {
+  date: (s) => s ? new Date(s).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—',
+  time: (s) => s ? new Date(s).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' }) : '—',
+  sev: (s) => ({ CRITICAL: '#ff3b5c', HIGH: '#ff8c00', MEDIUM: '#ffd60a', LOW: '#4d9fff' }[s] || '#8b92a8'),
+};
+
+const Pill = ({ children, color }) => (
+  <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 4, padding: '2px 8px', fontSize: 11, fontFamily: 'var(--font-mono)', letterSpacing: 1, fontWeight: 600 }}>
+    {children}
+  </span>
+);
+
+const Icon = ({ name, size = 16 }) => {
+  const icons = {
+    shield: 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z',
+    scan: 'M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18',
+    key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4',
+    credit: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3z',
+    git: 'M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22',
+    chart: 'M18 20V10M12 20V4M6 20v-6',
+    user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+    logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+    copy: 'M8 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2M8 4h8a2 2 0 0 0 2-2v2a2 2 0 0 0-2 2H8a2 2 0 0 0-2 2v2m0-4h8',
+    plus: 'M12 5v14M5 12h14',
+    trash: 'M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
+    check: 'M20 6L9 17l-5-5',
+    warn: 'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+    zap: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d={icons[name] || ''} />
+    </svg>
+  );
+};
+
+// ── Auth screen ────────────────────────────────────────────────────────────
+function AuthScreen({ onAuth }) {
+  const [mode, setMode] = useState('login');
+  const [form, setForm] = useState({ email: '', name: '', password: '' });
+  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true); setErr('');
+    try {
+      const path = mode === 'login' ? '/auth/login' : '/auth/register';
+      const body = mode === 'login'
+        ? { email: form.email, password: form.password }
+        : { email: form.email, name: form.name, password: form.password };
+      const data = await API.post(path, body);
+      if (data?.access_token) {
+        API.setToken(data.access_token);
+        window.location.href = '/app'; // Redirect to main scanner app
+      }
+    } catch (e) { setErr(e.message); }
+    setLoading(false);
+  };
+
+  const Field = ({ label, type = 'text', field }) => (
+    <div style={{ marginBottom: 16 }}>
+      <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 6, fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>{label}</label>
+      <input
+        type={type} value={form[field]} autoComplete={type === 'password' ? 'current-password' : 'email'}
+        onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
+        style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 6, padding: '10px 14px', color: 'var(--text)', fontSize: 14, outline: 'none', fontFamily: 'var(--font-sans)' }}
+      />
+    </div>
+  );
+
+  return (
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(ellipse at 30% 50%, rgba(0,255,136,0.04), transparent 60%), var(--bg)' }}>
+      <div style={{ width: 400, background: 'var(--surface)', border: '1px solid var(--border2)', borderRadius: 16, padding: 40 }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ fontSize: 28, fontFamily: 'var(--font-display)', fontWeight: 800, letterSpacing: 2 }}>
+            SHADOW<span style={{ color: 'var(--green)' }}>CODER</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--font-mono)', marginTop: 4, letterSpacing: 2 }}>EXPLOIT SIMULATION ENGINE</div>
+        </div>
+
+        {/* Tab toggle */}
+        <div style={{ display: 'flex', background: 'var(--surface2)', borderRadius: 8, padding: 4, marginBottom: 28 }}>
+          {['login','register'].map(m => (
+            <button key={m} onClick={() => { setMode(m); setErr(''); }}
+              style={{ flex: 1, padding: '8px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase',
+                background: mode === m ? 'var(--surface3)' : 'transparent',
+                color: mode === m ? 'var(--green)' : 'var(--text2)',
+                boxShadow: mode === m ? '0 0 12px var(--green-glow)' : 'none',
+              }}>
+              {m === 'login' ? 'Sign In' : 'Sign Up'}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={submit}>
+          <Field label="EMAIL" field="email" type="email" />
+          {mode === 'register' && <Field label="NAME" field="name" />}
+          <Field label="PASSWORD" field="password" type="password" />
+          {err && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 16, padding: '8px 12px', background: 'rgba(255,59,92,0.08)', borderRadius: 6, border: '1px solid rgba(255,59,92,0.2)' }}>{err}</div>}
+          <button type="submit" disabled={loading}
+            style={{ width: '100%', padding: 12, background: loading ? 'var(--surface3)' : 'var(--green)', color: loading ? 'var(--text2)' : '#000', border: 'none', borderRadius: 8, cursor: loading ? 'not-allowed' : 'pointer',
+              fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase',
+              boxShadow: loading ? 'none' : '0 0 20px rgba(0,255,136,0.3)',
+            }}>
+            {loading ? 'AUTHENTICATING...' : mode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT'}
+          </button>
+        </form>
+
+        {mode === 'login' && (
+          <div style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--text3)' }}>
+            Demo: <span style={{ color: 'var(--green)', fontFamily: 'var(--font-mono)', cursor: 'pointer' }}
+              onClick={() => setForm({ email: 'demo@shadowcoder.dev', name: '', password: 'demo1234' })}>
+              demo@shadowcoder.dev / demo1234
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+const NAV = [
+  { id: 'overview', icon: 'chart', label: 'Overview' },
+  { id: 'scans', icon: 'scan', label: 'Scan History' },
+  { id: 'api-keys', icon: 'key', label: 'API Keys' },
+  { id: 'cicd', icon: 'git', label: 'CI/CD' },
+  { id: 'billing', icon: 'credit', label: 'Billing' },
+  { id: 'settings', icon: 'user', label: 'Settings' },
+];
+
+function Sidebar({ active, onNav, user, onLogout }) {
+  const plan = user?.plan || 'free';
+  const planColor = { free: 'var(--text3)', pro: 'var(--blue)', team: 'var(--purple)', enterprise: 'var(--green)' }[plan] || 'var(--text3)';
+
+  return (
+    <aside style={{ width: 220, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      {/* Brand */}
+      <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, letterSpacing: 2 }}>
+          SHADOW<span style={{ color: 'var(--green)' }}>CODER</span>
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--font-mono)', marginTop: 2, letterSpacing: 1 }}>DASHBOARD</div>
+      </div>
+
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: '12px 0', overflowY: 'auto' }}>
+        {NAV.map(item => (
+          <button key={item.id} onClick={() => onNav(item.id)}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 20px', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontWeight: 500, transition: 'all 0.15s', position: 'relative',
+              background: active === item.id ? 'var(--green-glow)' : 'transparent',
+              color: active === item.id ? 'var(--green)' : 'var(--text2)',
+            }}>
+            {active === item.id && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, background: 'var(--green)', borderRadius: '0 2px 2px 0', boxShadow: '0 0 8px var(--green)' }} />}
+            <Icon name={item.icon} size={15} />
+            {item.label}
+          </button>
+        ))}
+      </nav>
+
+      {/* User info */}
+      <div style={{ padding: 16, borderTop: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <img src={user?.avatar_url} alt="" style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--border2)' }} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
+            <div style={{ fontSize: 10, color: planColor, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: 1 }}>{plan}</div>
+          </div>
+        </div>
+        <button onClick={onLogout} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text2)', cursor: 'pointer', fontSize: 12, padding: '6px 10px', width: '100%' }}>
+          <Icon name="logout" size={13} /> Sign out
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+// ── Overview page ──────────────────────────────────────────────────────────
+function Overview({ user }) {
+  const [stats, setStats] = useState(null);
+  const [quota, setQuota] = useState(null);
+  useEffect(() => {
+    API.get('/user/stats').then(setStats);
+    API.get('/user/me').then(d => setQuota(d?.quota));
+  }, []);
+
+  const StatCard = ({ label, value, sub, color }) => (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
+      <div style={{ fontSize: 11, color: 'var(--text2)', fontFamily: 'var(--font-mono)', letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontSize: 32, fontFamily: 'var(--font-display)', fontWeight: 800, color: color || 'var(--text)', lineHeight: 1 }}>{value ?? '—'}</div>
+      {sub && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>{sub}</div>}
+    </div>
+  );
+
+  const pct = quota ? Math.round((quota.used / Math.max(quota.limit, 1)) * 100) : 0;
+
+  return (
+    <div style={{ padding: 32, overflowY: 'auto', height: '100%' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800 }}>Welcome back, {user?.name?.split(' ')[0]}</h1>
+        <p style={{ color: 'var(--text2)', marginTop: 4, fontSize: 14 }}>Here's your security posture at a glance</p>
+      </div>
+
+      {/* Quota bar */}
+      {quota && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20, marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text2)', letterSpacing: 1 }}>MONTHLY SCANS</span>
+            <span style={{ fontFamily: 'var(--font-mono)', color: pct > 80 ? 'var(--orange)' : 'var(--green)' }}>{quota.used} / {quota.limit === -1 ? '∞' : quota.limit}</span>
+          </div>
+          <div style={{ height: 6, background: 'var(--surface3)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, background: pct > 80 ? 'var(--orange)' : 'var(--green)', borderRadius: 3, transition: 'width 0.6s ease', boxShadow: `0 0 8px ${pct > 80 ? 'var(--orange)' : 'var(--green)'}` }} />
+          </div>
+          {quota.limit !== -1 && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>{quota.remaining} scans remaining this month</div>}
+        </div>
+      )}
+
+      {/* Stats grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+        <StatCard label="Total Scans" value={stats?.total_scans} />
+        <StatCard label="Vulnerabilities" value={stats?.total_vulnerabilities} color="var(--orange)" />
+        <StatCard label="Critical Found" value={stats?.total_critical} color="var(--red)" />
+        <StatCard label="Avg Per Scan" value={stats?.avg_vulns_per_scan} sub="vulnerabilities" />
+      </div>
+
+      {/* Recent scans */}
+      {stats?.recent_scans?.length > 0 && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: 2, color: 'var(--text2)', textTransform: 'uppercase' }}>RECENT SCANS</div>
+          {stats.recent_scans.map((s, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '14px 20px', borderBottom: i < stats.recent_scans.length - 1 ? '1px solid var(--border)' : 'none', gap: 16 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.filename}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{fmt.date(s.scanned_at)}</div>
+              </div>
+              <Pill color={s.severity_breakdown?.CRITICAL > 0 ? 'var(--red)' : s.vulnerabilities_found > 0 ? 'var(--orange)' : 'var(--green)'}>
+                {s.vulnerabilities_found === 0 ? 'CLEAN' : `${s.vulnerabilities_found} VULNS`}
+              </Pill>
+              {s.severity_breakdown?.CRITICAL > 0 && <Pill color="var(--red)">{s.severity_breakdown.CRITICAL} CRIT</Pill>}
+              <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--font-mono)', minWidth: 60, textAlign: 'right' }}>{s.scan_time_ms}ms</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Scan history page ──────────────────────────────────────────────────────
+function ScanHistory() {
+  const [scans, setScans] = useState([]);
+  useEffect(() => { API.get('/user/scans?limit=50').then(d => setScans(d?.scans || [])); }, []);
+
+  return (
+    <div style={{ padding: 32, overflowY: 'auto', height: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div><h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800 }}>Scan History</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 13, marginTop: 4 }}>All your past security scans</p></div>
+        <a href="/app" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--green)', color: '#000', borderRadius: 8, textDecoration: 'none', fontSize: 12, fontFamily: 'var(--font-display)', fontWeight: 700, letterSpacing: 1 }}>
+          <Icon name="zap" size={13} /> NEW SCAN
+        </a>
+      </div>
+
+      {scans.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>⚔️</div>
+          <p style={{ fontFamily: 'var(--font-display)', fontSize: 16 }}>No scans yet</p>
+          <p style={{ fontSize: 13, marginTop: 6 }}>Run your first scan from the main dashboard</p>
+        </div>
+      ) : (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                {['File', 'Vulns', 'Severity', 'Chains', 'Time', 'Date'].map(h => (
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: 2, color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {scans.map((s, i) => (
+                <tr key={i} style={{ borderBottom: i < scans.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 12 }}>{s.filename}</td>
+                  <td style={{ padding: '12px 16px' }}><Pill color={s.vulnerabilities_found === 0 ? 'var(--green)' : 'var(--orange)'}>{s.vulnerabilities_found}</Pill></td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {s.severity_breakdown?.CRITICAL > 0 && <Pill color="var(--red)">C:{s.severity_breakdown.CRITICAL}</Pill>}
+                      {s.severity_breakdown?.HIGH > 0 && <Pill color="var(--orange)">H:{s.severity_breakdown.HIGH}</Pill>}
+                    </div>
+                  </td>
+                  <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text2)' }}>{s.chains_found}</td>
+                  <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text2)' }}>{s.scan_time_ms}ms</td>
+                  <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text3)' }}>{fmt.date(s.scanned_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── API Keys page ──────────────────────────────────────────────────────────
+function ApiKeys({ user }) {
+  const [keys, setKeys] = useState([]);
+  const [newKey, setNewKey] = useState(null);
+  const [name, setName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [err, setErr] = useState('');
+  const canCreate = ['pro', 'team', 'enterprise'].includes(user?.plan);
+
+  const load = () => API.get('/user/api-keys').then(d => setKeys(d?.api_keys || []));
+  useEffect(() => { load(); }, []);
+
+  const create = async () => {
+    setCreating(true); setErr('');
+    try {
+      const k = await API.post('/user/api-keys', { name: name || 'Default' });
+      setNewKey(k);
+      setName('');
+      load();
+    } catch (e) { setErr(e.message); }
+    setCreating(false);
+  };
+
+  const revoke = async (key_id) => {
+    await API.delete(`/user/api-keys/${key_id}`);
+    load();
+  };
+
+  return (
+    <div style={{ padding: 32, overflowY: 'auto', height: '100%' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800 }}>API Keys</h1>
+        <p style={{ color: 'var(--text2)', fontSize: 13, marginTop: 4 }}>Use these keys to authenticate programmatic API access</p>
+      </div>
+
+      {!canCreate && (
+        <div style={{ padding: '14px 18px', background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.25)', borderRadius: 10, marginBottom: 24, fontSize: 13 }}>
+          🔒 API key access requires <strong style={{ color: 'var(--purple)' }}>Pro or Team plan</strong>.
+          <a href="#" onClick={() => window.dispatchEvent(new CustomEvent('nav', { detail: 'billing' }))} style={{ color: 'var(--purple)', marginLeft: 6 }}>Upgrade now →</a>
+        </div>
+      )}
+
+      {/* Create new key */}
+      {canCreate && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+          <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: 1, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase' }}>CREATE NEW KEY</div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="Key name (e.g. Production)"
+              style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 6, padding: '8px 12px', color: 'var(--text)', fontSize: 13, outline: 'none' }} />
+            <button onClick={create} disabled={creating}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--green)', color: '#000', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-display)', fontWeight: 700, letterSpacing: 1 }}>
+              <Icon name="plus" size={13} /> CREATE
+            </button>
+          </div>
+          {err && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 8 }}>{err}</div>}
+        </div>
+      )}
+
+      {/* New key reveal */}
+      {newKey?.raw_key && (
+        <div style={{ padding: '16px 20px', background: 'rgba(0,255,136,0.06)', border: '1px solid rgba(0,255,136,0.25)', borderRadius: 10, marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: 'var(--green)', fontFamily: 'var(--font-mono)', letterSpacing: 1, marginBottom: 8 }}>⚠ SAVE THIS KEY — IT WON'T BE SHOWN AGAIN</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, wordBreak: 'break-all', color: 'var(--text)' }}>{newKey.raw_key}</div>
+          <button onClick={() => { navigator.clipboard?.writeText(newKey.raw_key); }} style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--green)', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <Icon name="copy" size={12} /> Copy to clipboard
+          </button>
+        </div>
+      )}
+
+      {/* Keys list */}
+      {keys.length > 0 && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          {keys.map((k, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '14px 20px', borderBottom: i < keys.length - 1 ? '1px solid var(--border)' : 'none', gap: 16 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{k.name}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{k.key_prefix}</div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>Last used: {fmt.date(k.last_used_at)}</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>{k.total_requests} req</div>
+              <Pill color={k.active ? 'var(--green)' : 'var(--text3)'}>{k.active ? 'ACTIVE' : 'REVOKED'}</Pill>
+              {k.active && (
+                <button onClick={() => revoke(k.key_id)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text3)', cursor: 'pointer', padding: '4px 8px', fontSize: 11 }}>
+                  <Icon name="trash" size={12} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── CI/CD page ─────────────────────────────────────────────────────────────
+function CiCd({ user }) {
+  const [tokens, setTokens] = useState([]);
+  const [repo, setRepo] = useState('');
+  const [name, setName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [yaml, setYaml] = useState('github');
+  const canUse = ['pro', 'team', 'enterprise'].includes(user?.plan);
+
+  const load = () => API.get('/user/ci-tokens').then(d => setTokens(d?.ci_tokens || []));
+  useEffect(() => { load(); }, []);
+
+  const create = async () => {
+    if (!repo) return;
+    setCreating(true);
+    try { await API.post('/user/ci-tokens', { repo, name: name || 'CI Pipeline' }); setRepo(''); setName(''); load(); }
+    catch (e) { alert(e.message); }
+    setCreating(false);
+  };
+
+  const badgeUrl = `${window.location.origin}/api/ci/badge/${user?.user_id}`;
+  const badgeMd  = `![ShadowCoder](${badgeUrl})`;
+
+  return (
+    <div style={{ padding: 32, overflowY: 'auto', height: '100%' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800 }}>CI/CD Integration</h1>
+        <p style={{ color: 'var(--text2)', fontSize: 13, marginTop: 4 }}>Automatically scan every commit and block deployments with critical vulnerabilities</p>
+      </div>
+
+      {!canUse && (
+        <div style={{ padding: '14px 18px', background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.25)', borderRadius: 10, marginBottom: 24, fontSize: 13 }}>
+          🔒 CI/CD integration requires <strong style={{ color: 'var(--purple)' }}>Pro or Team plan</strong>.
+        </div>
+      )}
+
+      {canUse && (
+        <>
+          {/* Token create */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20, marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: 1, color: 'var(--text2)', marginBottom: 14, textTransform: 'uppercase' }}>CREATE CI TOKEN</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <input value={repo} onChange={e => setRepo(e.target.value)} placeholder="org/repository"
+                style={{ flex: 2, minWidth: 180, background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 6, padding: '8px 12px', color: 'var(--text)', fontSize: 13, outline: 'none' }} />
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="Token name"
+                style={{ flex: 1, minWidth: 120, background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 6, padding: '8px 12px', color: 'var(--text)', fontSize: 13, outline: 'none' }} />
+              <button onClick={create} disabled={creating || !repo}
+                style={{ padding: '8px 16px', background: 'var(--green)', color: '#000', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-display)', fontWeight: 700, letterSpacing: 1 }}>
+                CREATE
+              </button>
+            </div>
+          </div>
+
+          {/* Tokens list */}
+          {tokens.length > 0 && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
+              <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: 2, color: 'var(--text3)', textTransform: 'uppercase' }}>CI TOKENS</div>
+              {tokens.map((t, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '12px 20px', borderBottom: i < tokens.length - 1 ? '1px solid var(--border)' : 'none', gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{t.name}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text3)' }}>{t.repo} · {t.total_runs} runs</div>
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--green)', wordBreak: 'break-all' }}>{t.token.slice(0, 20)}...</div>
+                  <button onClick={() => navigator.clipboard?.writeText(t.token)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text2)', cursor: 'pointer', padding: '4px 8px', fontSize: 11 }}>
+                    <Icon name="copy" size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* YAML templates */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
+            <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: 2, color: 'var(--text3)', textTransform: 'uppercase' }}>WORKFLOW TEMPLATE</span>
+              <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+                {['github', 'gitlab'].map(p => (
+                  <button key={p} onClick={() => setYaml(p)} style={{ padding: '4px 12px', borderRadius: 4, border: '1px solid var(--border2)', background: yaml === p ? 'var(--surface3)' : 'transparent', color: yaml === p ? 'var(--green)' : 'var(--text2)', cursor: 'pointer', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
+                    {p === 'github' ? 'GitHub Actions' : 'GitLab CI'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ padding: 16, fontSize: 11, color: 'var(--text2)', fontFamily: 'var(--font-mono)' }}>
+              {yaml === 'github' ? 'Place in: .github/workflows/shadowcoder.yml' : 'Add to: .gitlab-ci.yml'}
+            </div>
+            <div style={{ textAlign: 'right', padding: '0 16px 12px' }}>
+              <a href={yaml === 'github' ? '/api/ci/yaml/github' : '/api/ci/yaml/gitlab'}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', background: 'var(--surface3)', border: '1px solid var(--border2)', borderRadius: 6, color: 'var(--text)', textDecoration: 'none', fontSize: 12 }}>
+                ⬇ Download YAML
+              </a>
+            </div>
+          </div>
+
+          {/* Badge */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: 1, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase' }}>README BADGE</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--green)', background: 'var(--surface2)', padding: '10px 14px', borderRadius: 6, marginBottom: 10, wordBreak: 'break-all' }}>{badgeMd}</div>
+            <button onClick={() => navigator.clipboard?.writeText(badgeMd)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text2)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <Icon name="copy" size={12} /> Copy markdown
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Billing page ────────────────────────────────────────────────────────────
+function Billing({ user }) {
+  const [plans, setPlans] = useState(null);
+  const [sub, setSub] = useState(null);
+  const [period, setPeriod] = useState('monthly');
+  const [loading, setLoading] = useState('');
+
+  useEffect(() => {
+    API.get('/billing/plans').then(d => setPlans(d?.plans));
+    API.get('/billing/subscription').then(setSub);
+  }, []);
+
+  const checkout = async (plan) => {
+    setLoading(plan);
+    try {
+      const d = await API.post('/billing/checkout', { plan, billing_period: period });
+      if (d?.checkout_url) window.location.href = d.checkout_url;
+    } catch (e) { alert(e.message); }
+    setLoading('');
+  };
+
+  const planOrder = ['free', 'pro', 'team', 'enterprise'];
+  const planColors = { free: 'var(--text3)', pro: 'var(--blue)', team: 'var(--purple)', enterprise: 'var(--green)' };
+
+  return (
+    <div style={{ padding: 32, overflowY: 'auto', height: '100%' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800 }}>Billing & Plans</h1>
+        <p style={{ color: 'var(--text2)', fontSize: 13, marginTop: 4 }}>
+          Current plan: <strong style={{ color: planColors[user?.plan] || 'var(--text)' }}>{(user?.plan || 'free').toUpperCase()}</strong>
+        </p>
+      </div>
+
+      {/* Period toggle */}
+      <div style={{ display: 'flex', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: 4, width: 'fit-content', marginBottom: 28 }}>
+        {['monthly', 'yearly'].map(p => (
+          <button key={p} onClick={() => setPeriod(p)}
+            style={{ padding: '8px 20px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-display)', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase',
+              background: period === p ? 'var(--surface3)' : 'transparent',
+              color: period === p ? 'var(--green)' : 'var(--text2)',
+            }}>
+            {p} {p === 'yearly' && <span style={{ fontSize: 10, color: 'var(--green)', marginLeft: 4 }}>-17%</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Plans grid */}
+      {plans && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          {planOrder.filter(p => plans[p]).map(planKey => {
+            const p = plans[planKey];
+            const isCurrent = user?.plan === planKey;
+            const c = planColors[planKey];
+            const price = period === 'yearly' ? p.price_yearly : p.price_monthly;
+
+            return (
+              <div key={planKey} style={{
+                background: isCurrent ? `rgba(${planKey === 'green' ? '0,255,136' : '255,255,255'},0.04)` : 'var(--surface)',
+                border: `1px solid ${isCurrent ? c : 'var(--border)'}`,
+                borderRadius: 14, padding: 24, display: 'flex', flexDirection: 'column', gap: 12,
+                boxShadow: isCurrent ? `0 0 20px ${c}22` : 'none',
+              }}>
+                <div>
+                  <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', letterSpacing: 2, color: c, textTransform: 'uppercase', marginBottom: 4 }}>{planKey}</div>
+                  <div style={{ fontSize: 28, fontFamily: 'var(--font-display)', fontWeight: 800, color: 'var(--text)' }}>
+                    {price === null ? 'Custom' : price === 0 ? 'Free' : `$${price}`}
+                    {price > 0 && <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 400 }}>/{period === 'yearly' ? 'yr' : 'mo'}</span>}
+                  </div>
+                </div>
+
+                <ul style={{ listStyle: 'none', flex: 1 }}>
+                  {(p.features || []).map((f, i) => (
+                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--text2)', padding: '4px 0' }}>
+                      <span style={{ color: 'var(--green)', marginTop: 1, flexShrink: 0 }}>✓</span> {f}
+                    </li>
+                  ))}
+                </ul>
+
+                {isCurrent ? (
+                  <div style={{ textAlign: 'center', padding: '8px', borderRadius: 6, border: `1px solid ${c}44`, color: c, fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>CURRENT PLAN</div>
+                ) : planKey === 'enterprise' ? (
+                  <a href="mailto:enterprise@shadowcoder.dev" style={{ display: 'block', textAlign: 'center', padding: '10px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border2)', color: 'var(--text)', textDecoration: 'none', fontSize: 12, fontFamily: 'var(--font-display)', fontWeight: 700, letterSpacing: 1 }}>
+                    CONTACT SALES
+                  </a>
+                ) : planKey === 'free' ? null : (
+                  <button onClick={() => checkout(planKey)} disabled={loading === planKey}
+                    style={{ padding: 10, borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-display)', fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase',
+                      background: c, color: planKey === 'pro' ? '#fff' : '#000',
+                      opacity: loading === planKey ? 0.7 : 1,
+                      boxShadow: `0 0 12px ${c}44`,
+                    }}>
+                    {loading === planKey ? 'LOADING...' : 'UPGRADE'}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Settings page ──────────────────────────────────────────────────────────
+function Settings({ user, onUpdate }) {
+  const [name, setName] = useState(user?.name || '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const d = await API.patch('/user/me', { name });
+      onUpdate(d.user);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) { alert(e.message); }
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ padding: 32, overflowY: 'auto', height: '100%' }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800 }}>Settings</h1>
+        <p style={{ color: 'var(--text2)', fontSize: 13, marginTop: 4 }}>Manage your account preferences</p>
+      </div>
+
+      <div style={{ maxWidth: 500 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 24, marginBottom: 20 }}>
+          <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: 1, color: 'var(--text2)', marginBottom: 16, textTransform: 'uppercase' }}>PROFILE</div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>Display Name</label>
+            <input value={name} onChange={e => setName(e.target.value)}
+              style={{ width: '100%', background: 'var(--surface2)', border: '1px solid var(--border2)', borderRadius: 6, padding: '10px 12px', color: 'var(--text)', fontSize: 13, outline: 'none' }} />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>Email</label>
+            <input value={user?.email} readOnly
+              style={{ width: '100%', background: 'var(--surface3)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 12px', color: 'var(--text2)', fontSize: 13, outline: 'none' }} />
+          </div>
+
+          <button onClick={save} disabled={saving}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', background: saved ? 'var(--green)' : 'var(--surface3)', border: `1px solid ${saved ? 'var(--green)' : 'var(--border2)'}`, borderRadius: 8, color: saved ? '#000' : 'var(--text)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-display)', fontWeight: 700, letterSpacing: 1 }}>
+            {saved ? <><Icon name="check" size={13} /> SAVED</> : saving ? 'SAVING...' : 'SAVE CHANGES'}
+          </button>
+        </div>
+
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 24 }}>
+          <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: 1, color: 'var(--text2)', marginBottom: 16, textTransform: 'uppercase' }}>ACCOUNT INFO</div>
+          {[
+            ['User ID', user?.user_id],
+            ['Plan', user?.plan?.toUpperCase()],
+            ['Member since', fmt.date(user?.created_at)],
+            ['Last login', fmt.date(user?.last_login)],
+          ].map(([label, value]) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text2)' }}>{label}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text)' }}>{value || '—'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main app ────────────────────────────────────────────────────────────────
+function App() {
+  const [user, setUser] = useState(null);
+  const [page, setPage] = useState('overview');
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    if (API.token) {
+      API.get('/user/me').then(d => { if (d?.user) setUser(d.user); }).finally(() => setChecking(false));
+    } else {
+      setChecking(false);
+    }
+
+    // Listen for nav events from child components
+    const handler = (e) => setPage(e.detail);
+    window.addEventListener('nav', handler);
+    return () => window.removeEventListener('nav', handler);
+  }, []);
+
+  if (checking) return (
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', color: 'var(--green)', letterSpacing: 2 }}>
+      LOADING...
+    </div>
+  );
+
+  if (!user) return <AuthScreen onAuth={(u) => setUser(u)} />;
+
+  const logout = () => { API.clearToken(); setUser(null); };
+
+  const pages = {
+    overview: <Overview user={user} />,
+    scans: <ScanHistory />,
+    'api-keys': <ApiKeys user={user} />,
+    cicd: <CiCd user={user} />,
+    billing: <Billing user={user} />,
+    settings: <Settings user={user} onUpdate={setUser} />,
+  };
+
+  return (
+    <div style={{ display: 'flex', height: '100%' }}>
+      <Sidebar active={page} onNav={setPage} user={user} onLogout={logout} />
+      <div style={{ flex: 1, overflowY: 'auto', background: 'var(--bg)' }}>
+        {pages[page] || pages.overview}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

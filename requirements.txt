@@ -1,0 +1,35 @@
+# Core API
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+websockets>=12.0
+python-multipart>=0.0.6
+pydantic>=2.0
+
+# Async
+anyio>=4.0
+
+# Caching
+cachetools>=5.3
+
+# Security scanning
+pyyaml>=6.0
+requests>=2.31.0
+
+# AI integration
+anthropic>=0.25.0
+httpx>=0.27.0
+
+# Analysis graphs
+networkx>=3.2
+
+# SaaS — Auth
+bcrypt>=4.0.0
+python-jose[cryptography]>=3.3.0
+
+# SaaS — Billing
+stripe>=7.0.0
+
+# SaaS — Database (production)
+# sqlalchemy>=2.0
+# aiosqlite>=0.19        # SQLite async
+# asyncpg>=0.29          # PostgreSQL async

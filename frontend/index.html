@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShadowCoder v2 — Exploit Simulation Engine</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div class="noise"></div>
+
+    <div class="app-container">
+        <nav class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <polygon points="16,2 30,10 30,22 16,30 2,22 2,10" fill="none" stroke="#00ff88" stroke-width="1.5"/>
+                        <polygon points="16,7 25,12 25,20 16,25 7,20 7,12" fill="none" stroke="#00ff88" stroke-width="0.8" opacity="0.5"/>
+                        <circle cx="16" cy="16" r="3" fill="#00ff88"/>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-name">SHADOW<span class="brand-accent">CODER</span></span>
+                    <span class="brand-version">v2.0 // REAL-TIME ENGINE</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-label">NAVIGATION</div>
+                <ul class="nav-links">
+                    <li class="active"><span class="nav-icon">◈</span> Dashboard<span class="nav-dot"></span></li>
+                    <li><span class="nav-icon">◉</span> Scans</li>
+                    <li><span class="nav-icon">◫</span> Project Analysis</li>
+                    <li><span class="nav-icon">🔑</span> API Keys</li>
+                    <li><span class="nav-icon">⚙️</span> CI/CD</li>
+                    <li><span class="nav-icon">💳</span> Billing</li>
+                    <li><span class="nav-icon">◎</span> Settings</li>
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-label">ACTIVE PHASES</div>
+                <div class="phase-list">
+                    <div class="phase-item active"><span class="phase-dot"></span>Phase 3 — Real-time WS</div>
+                    <div class="phase-item active"><span class="phase-dot"></span>Phase 4 — Attack Engine</div>
+                    <div class="phase-item ai-phase" id="phase5-indicator"><span class="phase-dot"></span>Phase 5 — AI Integration</div>
+                    <div class="phase-item active"><span class="phase-dot"></span>Phase 6 — Project Analysis</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-label">SEVERITY</div>
+                <div class="attack-legend">
+                    <div class="legend-item"><span class="sev-dot critical"></span>Critical</div>
+                    <div class="legend-item"><span class="sev-dot high"></span>High</div>
+                    <div class="legend-item"><span class="sev-dot medium"></span>Medium</div>
+                    <div class="legend-item"><span class="sev-dot low"></span>Low</div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator"><span class="pulse-dot"></span><span>ENGINE ONLINE</span></div>
+                <div class="sys-info" id="sys-clock">00:00:00 UTC</div>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <!-- Progress bar (Phase 3 real-time) -->
+            <div class="progress-wrap" id="progress-wrap" style="display:none">
+                <div class="progress-track">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+                <span class="progress-label" id="progress-label">Initializing...</span>
+            </div>
+
+            <header class="topbar">
+                <div class="topbar-left">
+                    <div class="breadcrumb">
+                        <span class="bc-root">SHADOWCODER</span>
+                        <span class="bc-sep">/</span>
+                        <span class="bc-current">VULNERABILITY SCANNER</span>
+                    </div>
+                    <h1 class="page-title">Multi-Vector Analysis</h1>
+                </div>
+                <div class="topbar-right">
+                    <div class="stats-bar">
+                        <div class="stat-item" id="stat-critical"><span class="stat-val">—</span><span class="stat-lbl">CRITICAL</span></div>
+                        <div class="stat-item" id="stat-high"><span class="stat-val">—</span><span class="stat-lbl">HIGH</span></div>
+                        <div class="stat-item" id="stat-exploitable"><span class="stat-val">—</span><span class="stat-lbl">EXPLOITABLE</span></div>
+                        <div class="stat-item" id="stat-time"><span class="stat-val">—</span><span class="stat-lbl">SCAN TIME</span></div>
+                    </div>
+                    <div class="export-group" style="display: flex; gap: 8px;">
+                        <button class="btn-ai" id="sabotage-btn" title="Inject Vulnerabilities (Sabotage)">⚔ SABOTAGE</button>
+                        <button class="btn-ai" id="export-json-btn" title="Download Scan Report (JSON)">⬇ JSON</button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,45,85,0.05); padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(255,45,85,0.2);">
+                        <label class="switch-label" style="font-size: 10px; color: var(--sev-critical); font-family: var(--font-mono);">LIVE_EXPLOIT</label>
+                        <input type="checkbox" id="exploit-toggle" style="cursor:pointer">
+                    </div>
+                    <button class="btn-ai" id="ai-toggle">🤖 AI OFF</button>
+                    <button class="btn-scan" id="scan-btn">
+                        <span class="btn-scan-inner">
+                            <span class="spinner" id="scan-spinner"></span>
+                            <span class="btn-icon">⚡</span>
+                            <span id="btn-text">EXECUTE SCAN</span>
+                        </span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="content-grid" id="scanner-view">
+                <div class="panel code-panel">
+                    <div class="panel-header">
+                        <div class="panel-title-group">
+                            <span class="panel-dot red"></span>
+                            <span class="panel-dot yellow"></span>
+                            <span class="panel-dot green"></span>
+                            <span class="panel-title">SOURCE_CODE.py</span>
+                        </div>
+                        <div class="panel-controls">
+                            <span class="badge-issues" id="vuln-count-badge">AWAITING SCAN</span>
+                        </div>
+                    </div>
+                    <div class="line-numbers-container">
+                        <div class="line-numbers" id="line-numbers"></div>
+                        <div class="editor-container">
+                            <textarea id="code-input" spellcheck="false"># ShadowCoder v2 — Paste vulnerable Python code below
+# Phases 3-6: Real-time WebSocket scan, AI enrichment, project analysis
+
+import os, sqlite3, subprocess, pickle, yaml, hashlib, random, requests
+from jinja2 import Template
+
+def ping_server(ip_address):
+    """VULNERABLE: Command Injection"""
+    os.system(f"ping -c 1 {ip_address}")
+
+def get_user(user_id):
+    """VULNERABLE: SQL Injection"""
+    conn = sqlite3.connect('db.sqlite3')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = " + user_id)
+    return cursor.fetchone()
+
+def load_config(data):
+    """VULNERABLE: Unsafe Deserialization"""
+    return pickle.loads(data)
+
+def render_page(template_str):
+    """VULNERABLE: Server-Side Template Injection"""
+    return Template(template_str).render()
+
+def hash_pwd(password):
+    """VULNERABLE: Weak Cryptography"""
+    return hashlib.md5(password.encode()).hexdigest()
+
+def gen_token():
+    """VULNERABLE: Insecure Randomness"""
+    return random.randint(100000, 999999)
+
+def fetch_url(user_url):
+    """VULNERABLE: SSRF"""
+    return requests.get(user_url)
+
+SECRET_KEY = "hardcoded-secret-do-not-commit"
+DB_PASS = "admin123"
+</textarea>
+                            <pre id="code-highlight" class="language-python"><code class="language-python"></code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="right-column">
+                    <div class="panel details-panel" id="details-panel">
+                        <div class="panel-header">
+                            <span class="panel-title">ATTACK_DETAILS.log</span>
+                            <span class="panel-hint" id="details-hint">// click highlighted line</span>
+                        </div>
+                        <div class="panel-body" id="details-body">
+                            <div class="empty-state">
+                                <div class="empty-icon">
+                                    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                        <circle cx="24" cy="24" r="20" stroke="#00ff88" stroke-width="1" stroke-dasharray="4 4" opacity="0.4"/>
+                                        <path d="M24 14v10l6 6" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+                                        <circle cx="24" cy="24" r="2" fill="#00ff88" opacity="0.8"/>
+                                    </svg>
+                                </div>
+                                <p class="empty-title">AWAITING ANALYSIS</p>
+                                <p class="empty-sub">Run a scan, then click any highlighted vulnerability to view attack details, payloads, chains, and AI analysis.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="project-view" id="project-view" style="display:none">
+                <div class="project-dashboard-header">
+                    <div class="path-input-group">
+                        <span class="path-label">PROJECT_ROOT:</span>
+                        <input type="text" id="project-path" placeholder="e.g. C:/Projects/MyApp" value=".">
+                        <button class="btn-analyze" id="analyze-project-btn">
+                            <span class="btn-icon">🔍</span> RUN FULL ANALYSIS
+                        </button>
+                    </div>
+                </div>
+
+                <div class="project-main-grid">
+                    <!-- Left Column: Metrics & Dependencies -->
+                    <div class="project-side-col">
+                        <div class="panel surface-panel">
+                            <div class="panel-header"><span class="panel-title">SECURITY_SURFACE.map</span></div>
+                            <div class="panel-body" id="surface-body">
+                                <div class="empty-state">
+                                    <p class="empty-title">NO DATA</p>
+                                    <p class="empty-sub">Analyze project to map surface.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="panel dependencies-panel">
+                            <div class="panel-header">
+                                <span class="panel-title">DEPENDENCY_GRAPH.viz</span>
+                                <div class="panel-controls">
+                                    <span class="badge-count" id="dep-count-badge">0 FILES</span>
+                                </div>
+                            </div>
+                            <div class="panel-body" id="deps-body">
+                                <div class="empty-state">
+                                    <p class="empty-sub">Visualize module relationships.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Endpoints & Flows -->
+                    <div class="project-content-col">
+                        <div class="panel endpoints-panel">
+                            <div class="panel-header">
+                                <span class="panel-title">ENDPOINT_RISK.log</span>
+                                <div class="panel-controls">
+                                    <div class="filter-group">
+                                        <button class="filter-btn active" data-risk="all">ALL</button>
+                                        <button class="filter-btn" data-risk="high">HIGH</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="panel-body" id="endpoints-body">
+                                <div class="empty-state">
+                                    <p class="empty-sub">Identify all API routes and their risk profiles.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="panel flows-panel">
+                            <div class="panel-header"><span class="panel-title">DATA_FLOW_GRAPHS.vis</span></div>
+                            <div class="panel-body" id="flows-body">
+                                <div class="empty-state">
+                                    <p class="empty-sub">Trace untrusted data from entry points to sinks.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="scans-view" id="scans-view" style="display:none">
+                <div class="scans-header">
+                    <h2 class="section-display-title">Scan History</h2>
+                    <p class="section-subtitle">Manage and review all past security assessments.</p>
+                </div>
+                <div class="scans-grid">
+                    <div class="panel scans-history-panel">
+                        <div class="panel-header">
+                            <span class="panel-title">SCAN_ARCHIVE.idx</span>
+                            <div class="panel-controls">
+                                <button class="btn-clear-history" id="clear-history-btn">CLEAR ALL</button>
+                            </div>
+                        </div>
+                        <div class="panel-body" id="scans-history-body">
+                            <div class="empty-state">
+                                <p class="empty-sub">No recent scans found.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-view" id="settings-view" style="display:none">
+                <div class="settings-header">
+                    <h2 class="section-display-title">System Settings</h2>
+                    <p class="section-subtitle">Configure engine parameters and AI behavior.</p>
+                </div>
+                <div class="settings-grid">
+                    <div class="panel config-panel">
+                        <div class="panel-header"><span class="panel-title">ENGINE_CONFIG.env</span></div>
+                        <div class="panel-body">
+                            <div class="setting-group">
+                                <label class="setting-label">AI Analysis Model</label>
+                                <select class="setting-input" id="setting-ai-model">
+                                    <option value="llama3">Llama 3 (Local)</option>
+                                    <option value="claude-3-opus">Claude 3 Opus (Cloud)</option>
+                                    <option value="gpt-4">GPT-4 (Cloud)</option>
+                                </select>
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label">Sandbox Level</label>
+                                <select class="setting-input" id="setting-sandbox-level">
+                                    <option value="restricted">Restricted (Default)</option>
+                                    <option value="isolated">Isolated (Strict)</option>
+                                    <option value="monitor-only">Monitor Only</option>
+                                </select>
+                            </div>
+                            <div class="setting-group">
+                                <label class="setting-label">Scan Depth</label>
+                                <input type="range" class="setting-range" min="1" max="5" value="3" id="setting-scan-depth">
+                            </div>
+                            <button class="btn-save-settings" id="save-settings-btn">SAVE CONFIGURATION</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="billing-view" id="billing-view" style="display:none">
+                <div class="billing-header">
+                    <h2 class="section-display-title">Subscription & Plans</h2>
+                    <p class="section-subtitle">Scale your security testing with Pro and Team features.</p>
+                </div>
+                
+                <div class="plans-grid" id="plans-grid">
+                    <!-- Plans will be loaded here -->
+                    <div class="ai-loading"><span class="ai-pulse"></span> Synchronizing with billing engine...</div>
+                </div>
+
+                <div class="billing-footer-info">
+                    <div class="panel info-panel">
+                        <div class="panel-header"><span class="panel-title">BILLING_STATUS.sys</span></div>
+                        <div class="panel-body" id="billing-status-body">
+                            <p class="detail-text">Connect your account to view subscription details.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="api-keys-view" id="api-keys-view" style="display:none; flex: 1; flex-direction: column; overflow: hidden; padding: 30px; gap: 24px; max-width: 1200px; margin: 0 auto; width: 100%;">
+                <div class="settings-header">
+                    <h2 class="section-display-title">API Keys</h2>
+                    <p class="section-subtitle">Manage your programmatic access to ShadowCoder.</p>
+                </div>
+                <div class="panel" style="margin-bottom: 20px;">
+                    <div class="panel-header"><span class="panel-title">CREATE_KEY.exe</span></div>
+                    <div class="panel-body" style="display:flex;gap:10px;">
+                        <input type="text" id="new-key-name" placeholder="Key name (e.g. Production)" class="setting-input" style="flex:1;">
+                        <button class="btn-save-settings" id="create-key-btn" style="width:auto; margin-top:0;">CREATE KEY</button>
+                    </div>
+                </div>
+                <div id="new-key-display" style="display:none; padding: 16px; background: rgba(0,255,136,0.1); border: 1px solid var(--green); border-radius: 6px; margin-bottom: 20px;">
+                    <p style="color:var(--green); font-family:var(--font-mono); font-size: 11px; margin-bottom: 8px;">⚠ SAVE THIS KEY — IT WON'T BE SHOWN AGAIN</p>
+                    <code id="new-key-raw" style="font-size:14px; color:#fff; word-break: break-all;"></code>
+                </div>
+                <div class="panel">
+                    <div class="panel-header"><span class="panel-title">ACTIVE_KEYS.list</span></div>
+                    <div class="panel-body" id="keys-list-body" style="padding: 0;">
+                        <!-- Keys loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="cicd-view" id="cicd-view" style="display:none; flex: 1; flex-direction: column; overflow: hidden; padding: 30px; gap: 24px; max-width: 1200px; margin: 0 auto; width: 100%;">
+                <div class="settings-header">
+                    <h2 class="section-display-title">CI/CD Integration</h2>
+                    <p class="section-subtitle">Automatically scan every commit and block deployments with critical vulnerabilities.</p>
+                </div>
+                <div id="cicd-upgrade-notice" style="display:none; padding: 14px 18px; background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.25); border-radius: 6px; font-size: 13px; color:#fff;">
+                    🔒 CI/CD integration requires <strong style="color: var(--purple)">Pro or Team plan</strong>.
+                </div>
+                <div id="cicd-content" style="display:none;">
+                    <div class="panel" style="margin-bottom: 20px;">
+                        <div class="panel-header"><span class="panel-title">CREATE_CI_TOKEN.exe</span></div>
+                        <div class="panel-body" style="display:flex;gap:10px;">
+                            <input type="text" id="ci-repo-name" placeholder="org/repository" class="setting-input" style="flex:2;">
+                            <input type="text" id="ci-token-name" placeholder="Token name" class="setting-input" style="flex:1;">
+                            <button class="btn-save-settings" id="create-ci-btn" style="width:auto; margin-top:0;">CREATE TOKEN</button>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header"><span class="panel-title">ACTIVE_TOKENS.list</span></div>
+                        <div class="panel-body" id="ci-list-body" style="padding: 0;">
+                            <!-- Tokens loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Terminal Panel -->
+            <div class="terminal-panel" id="terminal-container">
+                <div class="terminal-header">
+                    <div class="terminal-dots">
+                        <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+                    </div>
+                    <span class="terminal-title">exploit_sandbox // RESTRICTED ENV</span>
+                    <button class="terminal-close" id="terminal-close">✕</button>
+                </div>
+                <div class="terminal-body">
+                    <pre class="terminal-output" id="terminal-output"></pre>
+                    <div class="terminal-input-row">
+                        <span class="terminal-prompt">shadow@exploit:~$</span>
+                        <span class="terminal-cursor">█</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Sabotage Reveal Modal -->
+    <div class="modal-overlay" id="sabotage-modal">
+        <div class="modal-content sabotage-reveal">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-icon">⚔</span>
+                    <h2 class="modal-title">Sabotage Report // INJECTION LOG</h2>
+                </div>
+                <button class="modal-close" id="close-sabotage-modal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="sabotage-grid">
+                    <div class="sabotage-info">
+                        <p class="sabotage-desc">The AI has successfully rewritten the code to introduce realistic security flaws. Review the changes below before proceeding with the scan.</p>
+                        <div class="sabotage-vulns-list" id="sabotage-vulns-list">
+                            <!-- Injected vulns will be listed here -->
+                        </div>
+                    </div>
+                    <div class="sabotage-stats">
+                        <div class="sab-stat">
+                            <span class="sab-stat-val" id="sab-count">0</span>
+                            <span class="sab-stat-lbl">VULNS INJECTED</span>
+                        </div>
+                        <div class="sab-stat">
+                            <span class="sab-stat-val" style="color:var(--cyan)">SUBTLE</span>
+                            <span class="sab-stat-lbl">STEALTH LEVEL</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="sabotage-actions">
+                    <button class="btn-scan" id="sabotage-proceed-btn" style="margin-top:0">
+                        <span class="btn-icon">⚡</span> EXECUTE SCAN NOW
+                    </button>
+                    <button class="btn-ai" id="sabotage-revert-btn">↺ REVERT CHANGES</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js" defer></script>
+    <script src="/static/app.js?v=2.2" defer></script>
+</body>
+</html>
