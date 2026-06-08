@@ -127,6 +127,25 @@ DANGEROUS_CALLS = {
     # ── NoSQL injection ───────────────────────────────────────────────────
     ("pymongo", "find"):      ("NoSQL Injection (MongoDB)", "HIGH", "CWE-943", "A03", "MongoDB .find() with unvalidated dict input — NoSQL injection risk"),
     ("pymongo", "find_one"):  ("NoSQL Injection (MongoDB)", "HIGH", "CWE-943", "A03", "MongoDB .find_one() with user input — authentication bypass possible"),
+
+    # ── Auth weaknesses ────────────────────────────────────────────────────
+    ("jwt", "decode"):        ("JWT Without Verification",           "CRITICAL", "CWE-345", "A02", "jwt.decode() called — verify signature and expiry claims"),
+    ("jose", "jwt"):          ("JWT Without Verification",           "HIGH",     "CWE-345", "A02", "jose JWT usage — ensure algorithm whitelist and signature verification"),
+    ("itsdangerous", "loads"):("Insecure Token Deserialization",     "HIGH",     "CWE-345", "A02", "itsdangerous.loads without max_age — replay attacks possible"),
+    ("hashlib", "new"):       ("Weak Cryptography (hashlib.new)",    "MEDIUM",   "CWE-327", "A02", "hashlib.new() — ensure algorithm is SHA-256 or stronger"),
+
+    # ── Session / IDOR ─────────────────────────────────────────────────────
+    ("session", "get"):       ("Session Data Access",                "LOW",      "CWE-613", "A07", "session.get() — ensure session is properly invalidated on logout"),
+    ("flask_login", "current_user"): ("IDOR Risk",                   "LOW",      "CWE-639", "A01", "current_user — verify object-level authorization before returning data"),
+
+    # ── API abuse / rate limiting ──────────────────────────────────────────
+    ("flask_limiter", "limit"): ("Rate Limiting Present",            "INFO",     "CWE-770", "A05", "Rate limiting applied — verify it covers all sensitive endpoints"),
+    ("slowapi", "limit"):       ("Rate Limiting Present",            "INFO",     "CWE-770", "A05", "Rate limiting applied via slowapi"),
+
+    # ── Log injection ──────────────────────────────────────────────────────
+    ("logging", "info"):      ("Log Injection",                      "MEDIUM",   "CWE-117", "A09", "logging.info() with user input — CRLF injection can spoof log entries"),
+    ("logging", "warning"):   ("Log Injection",                      "MEDIUM",   "CWE-117", "A09", "logging.warning() with user input — log injection risk"),
+    ("logging", "error"):     ("Log Injection",                      "LOW",      "CWE-117", "A09", "logging.error() with user input — sanitize before logging"),
 }
 
 SECRET_PATTERNS = [
@@ -146,6 +165,16 @@ SECRET_PATTERNS = [
     (r'(?i)DEBUG\s*=\s*True', "Debug Mode Enabled in Production", "MEDIUM", "CWE-215", "A05"),
     (r'(?i)VERIFY\s*=\s*False', "SSL Certificate Verification Disabled", "HIGH", "CWE-295", "A05"),
     (r'(?i)verify\s*=\s*False', "TLS Verification Bypass", "HIGH", "CWE-295", "A02"),
+    # Auth / IDOR patterns
+    (r'(?i)(username|user)\s*=\s*["\']admin["\']', "Weak Default Credentials", "HIGH", "CWE-521", "A07"),
+    (r'(?i)(password|passwd)\s*=\s*["\'](?:admin|root|password|123456|test)["\']', "Weak Default Credentials", "CRITICAL", "CWE-521", "A07"),
+    (r'jwt\.decode\([^)]*options\s*=\s*\{[^}]*verify[^}]*:\s*False', "JWT Without Verification", "CRITICAL", "CWE-345", "A02"),
+    (r'algorithms\s*=\s*\[\s*["\']none["\']', "JWT Algorithm None Attack", "CRITICAL", "CWE-345", "A02"),
+    # Exposed admin endpoints
+    (r'@app\.route\(["\']/(admin|debug|internal|management|console)', "Exposed Admin Endpoint", "HIGH", "CWE-284", "A01"),
+    (r'@(?:router|app)\.(get|post)\(["\']/(admin|debug|internal)', "Exposed Admin Endpoint", "HIGH", "CWE-284", "A01"),
+    # Session fixation
+    (r'session\[.{1,30}\]\s*=\s*request\.', "Session Fixation Risk", "HIGH", "CWE-384", "A07"),
 ]
 
 SQL_KEYWORDS = re.compile(r'\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE)\b', re.IGNORECASE)

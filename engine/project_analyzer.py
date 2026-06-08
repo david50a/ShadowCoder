@@ -67,6 +67,7 @@ class ProjectReport:
     dependencies: list[FileDependency]
     security_surface: dict  # summary stats
     cross_file_taints: list[dict]
+    dependency_vulnerabilities: list[dict] = field(default_factory=list)
 
 
 # ── Endpoint detection patterns ───────────────────────────────────────────────
@@ -131,37 +132,40 @@ class ProjectAnalyzer:
         if not root.exists():
             raise FileNotFoundError(f"Project root not found: {project_root}")
 
-        py_files = self._discover_files(root, max_files)
-        log.info(f"Project analyzer: {len(py_files)} Python files found")
+        project_files = self._discover_files(root, max_files)
+        log.info(f"Project analyzer: {len(project_files)} files found")
 
         # Parse all files
         total_lines = 0
-        for f in py_files:
+        for f in project_files:
             try:
                 source = f.read_text(encoding="utf-8", errors="replace")
                 self._file_sources[str(f)] = source
                 total_lines += source.count("\n")
-                tree = ast.parse(source, filename=str(f))
-                self._file_asts[str(f)] = tree
+                if f.suffix == ".py":
+                    tree = ast.parse(source, filename=str(f))
+                    self._file_asts[str(f)] = tree
             except Exception as e:
                 log.debug(f"Could not parse {f}: {e}")
 
         # Run all analysis phases
-        endpoints  = self._map_endpoints(py_files)
-        deps       = self._build_dependency_graph(py_files)
-        flows      = self._trace_data_flows(py_files, endpoints)
+        endpoints  = self._map_endpoints(project_files)
+        deps       = self._build_dependency_graph(project_files)
+        flows      = self._trace_data_flows(project_files, endpoints)
         cross_taint = self._detect_cross_file_taint(deps)
         surface    = self._compute_surface(endpoints, flows, cross_taint)
+        dep_vulns  = self._analyze_dependencies(project_root)
 
         return ProjectReport(
             project_root=str(root),
-            files_analyzed=len(py_files),
+            files_analyzed=len(project_files),
             total_lines=total_lines,
             endpoints=endpoints,
             data_flows=flows,
             dependencies=deps,
             security_surface=surface,
             cross_file_taints=cross_taint,
+            dependency_vulnerabilities=dep_vulns
         )
 
     # ── File discovery ─────────────────────────────────────────────────────────
@@ -170,28 +174,199 @@ class ProjectAnalyzer:
         skip_dirs = {".git", "__pycache__", ".venv", "venv", "node_modules",
                      "site-packages", "dist", "build", "restored_engine"}
         files = []
-        for f in root.rglob("*.py"):
-            if any(p in f.parts for p in skip_dirs):
-                continue
-            files.append(f)
+        # Support both python and javascript files
+        for suffix in ("*.py", "*.js"):
+            for f in root.rglob(suffix):
+                if any(p in f.parts for p in skip_dirs):
+                    continue
+                files.append(f)
+                if len(files) >= max_files:
+                    break
             if len(files) >= max_files:
                 break
         return files
 
+    def _extract_express_endpoints(self, source: str, filepath: str) -> list[Endpoint]:
+        endpoints = []
+        express_patterns = [
+            (r'\b(?:app|router)\.(get|post|put|delete|patch|use)\s*\(\s*["\']([^"\']+)["\']', "Express"),
+        ]
+        for pattern, framework in express_patterns:
+            for m in re.finditer(pattern, source):
+                method = m.group(1).upper()
+                if method == "USE":
+                    method = "ANY"
+                path = m.group(2)
+                lineno = source[:m.start()].count("\n") + 1
+                
+                # Dynamic express parameters like :id
+                params = re.findall(r':(\w+)', path)
+                
+                endpoints.append(Endpoint(
+                    path=path,
+                    method=method,
+                    handler="express_callback",
+                    file=filepath,
+                    line=lineno,
+                    params=params,
+                    risk_score=35 if params else 20,
+                    risk_reasons=[f"Express JS Route {method} {path}"],
+                    calls=[]
+                ))
+        return endpoints
+
+    def _analyze_dependencies(self, project_root: str) -> list[dict]:
+        vulns = []
+        root = Path(project_root)
+        
+        # 1. Look for requirements.txt (Python)
+        req_file = root / "requirements.txt"
+        if req_file.exists():
+            try:
+                content = req_file.read_text(encoding="utf-8", errors="replace")
+                for line in content.splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    # Match package name and version
+                    match = re.match(r'^([a-zA-Z0-9_\-]+)\s*(?:==|>=|<=|>|<|~=)\s*([0-9a-zA-Z\.\-]+)', line)
+                    if match:
+                        pkg = match.group(1).lower()
+                        ver = match.group(2)
+                        
+                        vulnerable = False
+                        cve = ""
+                        desc = ""
+                        sev = "Medium"
+                        
+                        def is_less_than(v1, v2):
+                            try:
+                                parts1 = [int(x) for x in re.findall(r'\d+', v1)]
+                                parts2 = [int(x) for x in re.findall(r'\d+', v2)]
+                                return parts1 < parts2
+                            except Exception:
+                                return False
+                                
+                        if pkg == "requests" and is_less_than(ver, "2.31.0"):
+                            vulnerable = True
+                            cve = "CVE-2023-32681"
+                            desc = "Unintended leak of Proxy-Authorization header."
+                            sev = "Medium"
+                        elif pkg == "django" and is_less_than(ver, "4.2.1"):
+                            vulnerable = True
+                            cve = "CVE-2023-31135"
+                            desc = "Potential directory traversal and auth bypass issues."
+                            sev = "High"
+                        elif pkg == "flask" and is_less_than(ver, "2.2.5"):
+                            vulnerable = True
+                            cve = "Flask Security Flaw"
+                            desc = "Outdated version vulnerable to minor DOS and config parsing issues."
+                            sev = "Low"
+                        elif pkg == "jinja2" and is_less_than(ver, "3.1.3"):
+                            vulnerable = True
+                            cve = "CVE-2024-22195"
+                            desc = "Validation bypass leading to cross-site scripting."
+                            sev = "Medium"
+                        elif pkg == "pyyaml" and is_less_than(ver, "6.0.1"):
+                            vulnerable = True
+                            cve = "PyYAML Arbitrary Code Exec"
+                            desc = "Older versions might lack safe loading checks by default."
+                            sev = "High"
+                            
+                        if vulnerable:
+                            vulns.append({
+                                "package": pkg,
+                                "installed_version": ver,
+                                "safe_version": "Upgrade recommended",
+                                "vulnerability": f"{cve}: {desc}",
+                                "severity": sev
+                            })
+            except Exception as e:
+                log.debug(f"Failed to parse requirements.txt: {e}")
+                
+        # 2. Look for package.json (Node.js)
+        pkg_json = root / "package.json"
+        if pkg_json.exists():
+            try:
+                import json
+                content = json.loads(pkg_json.read_text(encoding="utf-8", errors="replace"))
+                deps = {}
+                deps.update(content.get("dependencies", {}))
+                deps.update(content.get("devDependencies", {}))
+                
+                for pkg, ver_spec in deps.items():
+                    ver = "".join(re.findall(r'[0-9\.]+', ver_spec))
+                    if not ver:
+                        continue
+                        
+                    pkg_lower = pkg.lower()
+                    vulnerable = False
+                    cve = ""
+                    desc = ""
+                    sev = "Medium"
+                    
+                    def is_less_than(v1, v2):
+                        try:
+                            parts1 = [int(x) for x in re.findall(r'\d+', v1)]
+                            parts2 = [int(x) for x in re.findall(r'\d+', v2)]
+                            return parts1 < parts2
+                        except Exception:
+                            return False
+                            
+                    if pkg_lower == "express" and is_less_than(ver, "4.19.0"):
+                        vulnerable = True
+                        cve = "CVE-2024-29025"
+                        desc = "Body parser open redirect vulnerability."
+                        sev = "Medium"
+                    elif pkg_lower == "lodash" and is_less_than(ver, "4.17.21"):
+                        vulnerable = True
+                        cve = "CVE-2020-8203"
+                        desc = "Prototype pollution in lodash.defaultsDeep."
+                        sev = "High"
+                    elif pkg_lower == "axios" and is_less_than(ver, "1.6.0"):
+                        vulnerable = True
+                        cve = "CVE-2023-45857"
+                        desc = "SSRF vulnerability."
+                        sev = "High"
+                    elif pkg_lower == "jsonwebtoken" and is_less_than(ver, "9.0.0"):
+                        vulnerable = True
+                        cve = "CVE-2022-23529"
+                        desc = "RCE via key retrieval callback injection."
+                        sev = "Critical"
+                        
+                    if vulnerable:
+                        vulns.append({
+                            "package": pkg,
+                            "installed_version": ver_spec,
+                            "safe_version": "Upgrade recommended",
+                            "vulnerability": f"{cve}: {desc}",
+                            "severity": sev
+                        })
+            except Exception as e:
+                log.debug(f"Failed to parse package.json: {e}")
+                
+        return vulns
+
     # ── Endpoint mapping ───────────────────────────────────────────────────────
 
-    def _map_endpoints(self, py_files: list[Path]) -> list[Endpoint]:
+    def _map_endpoints(self, project_files: list[Path]) -> list[Endpoint]:
         endpoints = []
-        for f in py_files:
+        for f in project_files:
             source = self._file_sources.get(str(f), "")
             tree = self._file_asts.get(str(f))
-            if not tree:
+            if not tree and not str(f).endswith(".js"):
                 continue
             endpoints.extend(self._extract_endpoints_from_file(source, tree, str(f)))
         return sorted(endpoints, key=lambda e: -e.risk_score)
 
-    def _extract_endpoints_from_file(self, source: str, tree: ast.Module, filepath: str) -> list[Endpoint]:
+    def _extract_endpoints_from_file(self, source: str, tree: Optional[ast.Module], filepath: str) -> list[Endpoint]:
         endpoints = []
+        if filepath.endswith(".js"):
+            return self._extract_express_endpoints(source, filepath)
+
+        if not tree:
+            return []
+
         lines = source.splitlines()
 
         # FastAPI / Flask decorator detection
@@ -486,4 +661,5 @@ def project_report_to_dict(report: ProjectReport) -> dict:
             for d in report.dependencies
         ],
         "cross_file_taints": report.cross_file_taints,
+        "dependency_vulnerabilities": report.dependency_vulnerabilities
     }

@@ -28,6 +28,7 @@ import asyncio
 import logging
 import sys
 import time
+import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,6 +49,12 @@ from engine.scan_manager import ScanManager, ScanJob, JobStatus, _report_to_dict
 from engine.ai_service import AIService, AIServiceSync
 from engine.project_analyzer import ProjectAnalyzer, project_report_to_dict
 from engine.sabotage_engine import sabotage_source
+from engine.multi_vector_engine import MultiVectorEngine, multi_vector_report_to_dict
+from engine.architecture_mapper import ArchitectureMapper, arch_map_to_dict
+from engine.discovery_engine import LocalhostDiscoveryEngine, AttackSurfaceMapper
+from engine.security_checks import SecurityTestModules
+from engine.findings_engine import FindingsEngine
+from fastapi.responses import Response
 
 # SaaS layer
 try:
@@ -96,6 +103,14 @@ _manager = ScanManager(_engine, max_workers=4)
 _ai = AIService()
 _ai_sync = AIServiceSync()
 _project_analyzer = ProjectAnalyzer()
+_mv_engine = MultiVectorEngine(max_workers=6)
+_arch_mapper = ArchitectureMapper()
+
+# In-memory store for multi-vector scan results (job_id -> result dict)
+_mv_jobs: dict[str, dict] = {}
+
+# In-memory store for unified scan results (job_id -> job dict)
+_unified_scan_jobs: dict[str, dict] = {}
 
 
 # ── Request models ─────────────────────────────────────────────────────────────
@@ -106,8 +121,29 @@ class ScanRequest(BaseModel):
     skip_ai: bool = Field(default=True, description="Skip Ollama AI enrichment")
     exploit: bool = Field(default=False, description="Run live exploitation payloads")
 
+class ScanRequestUnified(BaseModel):
+    target_url: Optional[str] = Field(default=None, description="URL of target to scan dynamically")
+    source_code: Optional[str] = Field(default=None, description="Raw source code to scan statically")
+    filename: str = Field(default="editor.py")
+    project_root: Optional[str] = Field(default=None, description="Directory to scan project-wide")
+
+class MultiVectorScanRequest(BaseModel):
+    source_code: str = Field(..., description="Python source code to scan")
+    filename: str = Field(default="editor.py")
+    vectors: list[str] = Field(
+        default=["input", "auth", "api", "dataflow", "config", "dependency"],
+        description="Attack vectors to run (input, auth, api, dataflow, config, dependency)"
+    )
+    parallel: bool = Field(default=True, description="Run vectors in parallel")
+    use_ai: bool = Field(default=False, description="Enrich scan results with Ollama AI")
+
+class ArchitectureMapRequest(BaseModel):
+    source_code: str = Field(..., description="Python source code to map")
+    filename: str = Field(default="editor.py")
+
 class SabotageRequest(BaseModel):
     source_code: str = Field(..., description="Python source code to sabotage")
+    use_ai: bool = Field(default=True, description="Whether to use AI or fast rule-based transforms")
 
 class SimulateRequest(BaseModel):
     source_code: str
@@ -193,8 +229,9 @@ async def sabotage_code(request: SabotageRequest):
     transforms so this endpoint always works — no Ollama required.
     """
     try:
+        should_use_ai = request.use_ai and _ai.is_available
         result = await asyncio.to_thread(
-            sabotage_source, request.source_code, _ai.is_available
+            sabotage_source, request.source_code, should_use_ai
         )
         if not result.get("summary"):
             # No transforms applied — code may already be vulnerable or pattern unsupported
@@ -208,6 +245,208 @@ async def sabotage_code(request: SabotageRequest):
     except Exception as e:
         log.error(f"Sabotage failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Unified Scan Background Workers & Endpoints ───────────────────────────────
+
+async def run_dynamic_scan_task(job_id: str, target_url: str):
+    _unified_scan_jobs[job_id] = {
+        "status": "RUNNING",
+        "type": "dynamic",
+        "target": target_url,
+        "progress": 10,
+        "result": None,
+        "error": None
+    }
+    try:
+        t0 = time.perf_counter()
+        
+        # 1. Target Discovery
+        _unified_scan_jobs[job_id]["progress"] = 25
+        discovery = LocalhostDiscoveryEngine(max_depth=3, max_pages=30)
+        discovery_results = discovery.discover(target_url)
+        
+        # 2. Attack Surface Mapping
+        _unified_scan_jobs[job_id]["progress"] = 50
+        mapper = AttackSurfaceMapper()
+        mapped_surface = mapper.map_surface(target_url, discovery_results)
+        
+        # 3. Security Checks
+        _unified_scan_jobs[job_id]["progress"] = 75
+        checker = SecurityTestModules()
+        raw_findings = checker.run_all_checks(target_url, mapped_surface)
+        
+        # 4. Findings Engine
+        _unified_scan_jobs[job_id]["progress"] = 85
+        findings_engine = FindingsEngine()
+        findings = findings_engine.standardize(raw_findings)
+        
+        # 5. AI Enrichment
+        _unified_scan_jobs[job_id]["progress"] = 90
+        enriched_findings = []
+        for f in findings:
+            ai_exp = await _ai.explain(f)
+            ai_fix = await _ai.fix(f)
+            f["ai_explanation"] = ai_exp
+            f["ai_fix"] = ai_fix
+            enriched_findings.append(f)
+            
+        elapsed_ms = int((time.perf_counter() - t0) * 1000)
+        
+        # Compile dynamic scan report
+        raw_report = {
+            "target_url": target_url,
+            "scan_time_ms": elapsed_ms,
+            "scanned_at": datetime.now(timezone.utc).isoformat(),
+            "vulnerabilities_found": len(enriched_findings),
+            "findings": enriched_findings,
+            "pages": discovery_results.get("pages", []),
+            "forms": discovery_results.get("forms", []),
+            "cookies": mapped_surface.get("cookies", []),
+            "graph": mapped_surface.get("graph", {"nodes": [], "edges": []}),
+            "summary": f"Dynamic assessment of {target_url} completed. Discovered {len(discovery_results.get('pages', []))} pages, {len(discovery_results.get('forms', []))} forms, and identified {len(enriched_findings)} security issues."
+        }
+        
+        if _ai.is_available:
+            summary = await _ai.project_summary(raw_report)
+            raw_report["summary"] = summary
+            
+        _unified_scan_jobs[job_id]["status"] = "COMPLETE"
+        _unified_scan_jobs[job_id]["progress"] = 100
+        _unified_scan_jobs[job_id]["result"] = raw_report
+        
+    except Exception as e:
+        log.error(f"Dynamic scan job {job_id} failed: {e}", exc_info=True)
+        _unified_scan_jobs[job_id]["status"] = "FAILED"
+        _unified_scan_jobs[job_id]["error"] = str(e)
+
+
+async def run_static_scan_task(job_id: str, source_code: str, filename: str):
+    _unified_scan_jobs[job_id] = {
+        "status": "RUNNING",
+        "type": "static",
+        "target": filename,
+        "progress": 20,
+        "result": None,
+        "error": None
+    }
+    try:
+        # Submit to existing static scan manager
+        manager_job_id = await _manager.submit(
+            source_code,
+            filename=filename,
+            skip_ai=False,
+            exploit=False
+        )
+        
+        # Poll static manager job status
+        for _ in range(60):
+            job = _manager.get_job(manager_job_id)
+            if job and job.status in (JobStatus.COMPLETE, JobStatus.CACHED, JobStatus.FAILED):
+                break
+            await asyncio.sleep(0.5)
+            
+        job = _manager.get_job(manager_job_id)
+        if job and job.status in (JobStatus.COMPLETE, JobStatus.CACHED) and job.result:
+            _unified_scan_jobs[job_id]["status"] = "COMPLETE"
+            _unified_scan_jobs[job_id]["progress"] = 100
+            _unified_scan_jobs[job_id]["result"] = job.result
+        else:
+            error_msg = job.error if job else "Scan timed out or failed in static manager"
+            _unified_scan_jobs[job_id]["status"] = "FAILED"
+            _unified_scan_jobs[job_id]["error"] = error_msg
+            
+    except Exception as e:
+        log.error(f"Static scan job {job_id} failed: {e}", exc_info=True)
+        _unified_scan_jobs[job_id]["status"] = "FAILED"
+        _unified_scan_jobs[job_id]["error"] = str(e)
+
+
+async def run_project_scan_task(job_id: str, project_root: str, max_files: int):
+    _unified_scan_jobs[job_id] = {
+        "status": "RUNNING",
+        "type": "project",
+        "target": project_root,
+        "progress": 20,
+        "result": None,
+        "error": None
+    }
+    try:
+        loop = asyncio.get_event_loop()
+        report = await loop.run_in_executor(
+            None,
+            lambda: _project_analyzer.analyze(project_root, max_files=max_files)
+        )
+        result_dict = project_report_to_dict(report)
+        _unified_scan_jobs[job_id]["status"] = "COMPLETE"
+        _unified_scan_jobs[job_id]["progress"] = 100
+        _unified_scan_jobs[job_id]["result"] = result_dict
+    except Exception as e:
+        log.error(f"Project scan job {job_id} failed: {e}", exc_info=True)
+        _unified_scan_jobs[job_id]["status"] = "FAILED"
+        _unified_scan_jobs[job_id]["error"] = str(e)
+
+
+@app.post("/scan")
+async def start_unified_scan(request: ScanRequestUnified, background_tasks: BackgroundTasks):
+    job_id = "JOB-" + uuid.uuid4().hex[:12].upper()
+    
+    if request.target_url:
+        background_tasks.add_task(run_dynamic_scan_task, job_id, request.target_url)
+    elif request.source_code:
+        background_tasks.add_task(run_static_scan_task, job_id, request.source_code, request.filename)
+    elif request.project_root:
+        background_tasks.add_task(run_project_scan_task, job_id, request.project_root, 100)
+    else:
+        raise HTTPException(status_code=400, detail="One of target_url, source_code, or project_root must be provided")
+        
+    return {
+        "job_id": job_id,
+        "status": "RUNNING"
+    }
+
+
+@app.get("/scan/{id}")
+async def get_unified_scan_status(id: str):
+    job = _unified_scan_jobs.get(id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan job not found")
+        
+    response = {
+        "job_id": id,
+        "status": job["status"],
+        "progress": job["progress"],
+        "error": job["error"]
+    }
+    if job["status"] == "COMPLETE" and job["result"]:
+        response["result"] = job["result"]
+    return response
+
+
+@app.get("/report/{id}")
+async def get_unified_report(id: str, format: str = "json"):
+    job = _unified_scan_jobs.get(id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan job not found")
+        
+    if job["status"] != "COMPLETE" or not job["result"]:
+        raise HTTPException(status_code=400, detail="Scan report is not ready or failed")
+        
+    report_data = job["result"]
+    reporter = Reporter()
+    
+    fmt = format.lower().strip()
+    if fmt == "html":
+        html_content = reporter.to_html(report_data)
+        return Response(content=html_content, media_type="text/html")
+    elif fmt == "pdf":
+        pdf_bytes = reporter.to_pdf(report_data)
+        headers = {
+            "Content-Disposition": f"attachment; filename=report_{id}.pdf"
+        }
+        return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+    else:
+        return report_data
 
 
 @app.post("/api/scan")
@@ -429,6 +668,180 @@ def cache_stats():
 def clear_cache():
     _manager.cache.clear()
     return {"message": "Cache cleared"}
+
+
+# ── Multi-Vector Attack Simulation Engine ──────────────────────────────────────────
+
+# Multi-vector WS connections: job_id -> set of WebSocket connections
+_mv_ws_connections: dict[str, list] = {}
+
+
+@app.post("/api/multi-vector/scan")
+async def multi_vector_scan(request: MultiVectorScanRequest):
+    """
+    Launch a multi-vector parallel attack simulation.
+    Returns a job_id immediately.
+    Connect to /ws/multi/{job_id} for real-time per-vector progress events.
+    Poll /api/multi-vector/{job_id} to get the full result once complete.
+    """
+    if not request.source_code.strip():
+        raise HTTPException(status_code=400, detail="source_code cannot be empty")
+
+    job_id = uuid.uuid4().hex[:12].upper()
+    _mv_jobs[job_id] = {"status": "RUNNING", "result": None, "error": None}
+
+    async def _run():
+        def _progress(vector_type: str, result):
+            """Called from thread when each vector completes."""
+            # Build incremental update
+            update = {
+                "type": "vector_complete",
+                "job_id": job_id,
+                "vector_type": vector_type,
+                "vector_label": result.vector_label,
+                "severity": result.severity,
+                "finding_count": len(result.findings),
+                "exploitable": result.exploitable,
+                "scan_time_ms": result.scan_time_ms,
+                "error": result.error,
+            }
+            # Broadcast to any connected WS clients
+            sockets = list(_mv_ws_connections.get(job_id, []))
+            if sockets and asyncio.get_event_loop():
+                text = __import__("json").dumps(update)
+                for ws in sockets:
+                    asyncio.run_coroutine_threadsafe(
+                        ws.send_text(text), asyncio.get_event_loop()
+                    )
+
+        try:
+            loop = asyncio.get_event_loop()
+            report = await loop.run_in_executor(
+                None,
+                lambda: _mv_engine.scan(
+                    request.source_code,
+                    filename=request.filename,
+                    vectors=request.vectors,
+                    progress_callback=_progress,
+                    use_ai=request.use_ai,
+                ),
+            )
+            result_dict = multi_vector_report_to_dict(report)
+            _mv_jobs[job_id]["status"] = "COMPLETE"
+            _mv_jobs[job_id]["result"] = result_dict
+
+            # Broadcast completion to any WS clients
+            sockets = list(_mv_ws_connections.get(job_id, []))
+            done_msg = __import__("json").dumps({"type": "complete", "job_id": job_id, "result": result_dict})
+            for ws in sockets:
+                try:
+                    await ws.send_text(done_msg)
+                except Exception:
+                    pass
+        except Exception as e:
+            log.error(f"Multi-vector scan {job_id} failed: {e}", exc_info=True)
+            _mv_jobs[job_id]["status"] = "FAILED"
+            _mv_jobs[job_id]["error"] = str(e)
+            sockets = list(_mv_ws_connections.get(job_id, []))
+            err_msg = __import__("json").dumps({"type": "error", "job_id": job_id, "error": str(e)})
+            for ws in sockets:
+                try:
+                    await ws.send_text(err_msg)
+                except Exception:
+                    pass
+
+    asyncio.ensure_future(_run())
+    return {
+        "job_id": job_id,
+        "status": "RUNNING",
+        "ws_url": f"/ws/multi/{job_id}",
+        "poll_url": f"/api/multi-vector/{job_id}",
+        "vectors": request.vectors,
+    }
+
+
+@app.get("/api/multi-vector/{job_id}")
+async def get_multi_vector_result(job_id: str):
+    """Poll multi-vector scan status and result."""
+    job = _mv_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Multi-vector job not found")
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        "result": job.get("result"),
+        "error": job.get("error"),
+    }
+
+
+@app.get("/api/multi-vector/{job_id}/graph")
+async def get_attack_graph(job_id: str):
+    """Get the vis-network attack graph for a completed multi-vector scan."""
+    job = _mv_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Multi-vector job not found")
+    if job["status"] != "COMPLETE" or not job.get("result"):
+        raise HTTPException(status_code=202, detail="Scan not yet complete")
+    return job["result"].get("attack_graph", {"nodes": [], "edges": []})
+
+
+@app.websocket("/ws/multi/{job_id}")
+async def websocket_multi_vector(websocket: WebSocket, job_id: str):
+    """
+    Real-time multi-vector scan progress stream.
+    Receives:
+      {type: "vector_complete", vector_type, severity, finding_count, exploitable, scan_time_ms}
+      {type: "complete", result: {...}}
+      {type: "error", error: "..."}
+    """
+    await websocket.accept()
+    _mv_ws_connections.setdefault(job_id, []).append(websocket)
+    try:
+        # If already done, send result immediately
+        job = _mv_jobs.get(job_id)
+        if job and job["status"] == "COMPLETE" and job.get("result"):
+            await websocket.send_text(
+                __import__("json").dumps({"type": "complete", "job_id": job_id, "result": job["result"]})
+            )
+        elif job and job["status"] == "FAILED":
+            await websocket.send_text(
+                __import__("json").dumps({"type": "error", "job_id": job_id, "error": job.get("error")})
+            )
+
+        while True:
+            try:
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
+                if data == "ping":
+                    await websocket.send_text('{"type":"pong"}')
+            except asyncio.TimeoutError:
+                await websocket.send_text('{"type":"heartbeat"}')
+    except WebSocketDisconnect:
+        pass
+    finally:
+        sockets = _mv_ws_connections.get(job_id, [])
+        if websocket in sockets:
+            sockets.remove(websocket)
+
+
+@app.post("/api/architecture/map")
+async def architecture_map(request: ArchitectureMapRequest):
+    """
+    Map the architecture of Python source code.
+    Identifies entry points, trust boundaries, data flows, and components.
+    """
+    if not request.source_code.strip():
+        raise HTTPException(status_code=400, detail="source_code cannot be empty")
+    try:
+        result = await asyncio.to_thread(
+            lambda: arch_map_to_dict(
+                _arch_mapper.map(request.source_code, filename=request.filename)
+            )
+        )
+        return result
+    except Exception as e:
+        log.error(f"Architecture mapping failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.get("/api/file")

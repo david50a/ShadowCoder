@@ -1,119 +1,137 @@
-# ⚔️ ShadowCoder — Attack Simulation Engine
+# ⚔️ ShadowCoder
 
-AI-powered offensive security scanner for Python code. Detects vulnerabilities, generates real exploit payloads, simulates execution paths, and chains multi-step attacks — all running locally with Ollama.
+**ShadowCoder** is an AI-powered offensive security scanner and attack simulation engine designed specifically for Python code. By leveraging local LLMs (like Ollama), ShadowCoder detects vulnerabilities, constructs realistic exploit payloads, traces taint flows, and chains multi-step attacks without actual code execution.
 
 ---
 
-## Architecture
+## 🚀 Features
 
+- **Static Analysis**: AST-based vulnerability detection across your Python codebases.
+- **Payload Generation**: Automatically crafts realistic exploit payloads tailored to the discovered vulnerabilities.
+- **Execution Simulation**: Safely traces taint flows to understand how data moves through your application.
+- **Attack Graph Building**: Identifies and constructs multi-step exploit chains (e.g., SSRF to Cloud Credential Theft, SQLi to Account Takeover).
+- **Local AI Enrichment**: Uses local LLMs via Ollama (e.g., Llama 3) for deep code understanding without leaking data.
+- **Flexible Reporting**: Output reports in Terminal, JSON, or SARIF formats (compatible with GitHub Code Scanning).
+
+---
+
+## 🏗 Architecture
+
+ShadowCoder's architecture is composed of several independent but tightly integrated modules:
+
+```mermaid
+flowchart TD
+    A[Source Code] --> B[StaticAnalyzer]
+    B --> C[PayloadGenerator]
+    C --> D[ExecutionSimulator]
+    D --> E[AttackGraphBuilder]
+    E --> F[OllamaClient (Local LLM)]
+    F --> G[Reporter]
+    
+    B -. AST Detection .-> B
+    C -. Exploit Crafting .-> C
+    D -. Taint Tracing .-> D
+    E -. Chain Building .-> E
+    F -. AI Enrichment .-> F
 ```
-source code
-    → StaticAnalyzer      AST-based vulnerability detection
-    → PayloadGenerator    Realistic exploit payload crafting
-    → ExecutionSimulator  Taint flow tracing (no code execution)
-    → AttackGraphBuilder  Multi-step exploit chain building
-    → OllamaClient        Local LLM enrichment (llama3)
-    → Reporter            Terminal / JSON / SARIF output
-```
 
-## Quick Start
+---
 
-### 1. Install dependencies
+## 🛠 Quick Start
+
+### 1. Install Dependencies
 
 ```bash
-pip install pyyaml requests
+pip install -r requirements.txt
 ```
+*(Dependencies generally include `pyyaml`, `requests`, etc.)*
 
-### 2. Start Ollama (optional — for AI enrichment)
+### 2. Setup Ollama (Optional but Recommended)
+
+For AI enrichment, install and start Ollama locally:
 
 ```bash
 ollama serve
 ollama pull llama3
 ```
 
-### 3. Scan a file
+### 3. Run a Scan
+
+ShadowCoder can be invoked from the CLI to scan your Python files:
 
 ```bash
-# Terminal report (default)
+# Standard terminal report
 python shadowcoder.py scan myapp.py
 
-# JSON output
+# Output as JSON
 python shadowcoder.py scan myapp.py --json
 
-# SARIF (GitHub Code Scanning compatible)
+# Output as SARIF (for CI/CD integration)
 python shadowcoder.py scan myapp.py --sarif
 
-# Fast scan — no AI enrichment
+# Fast scan mode (Disables AI enrichment)
 python shadowcoder.py scan myapp.py --no-ai
 
-# Use a different Ollama model
+# Specify a different Ollama model
 python shadowcoder.py scan myapp.py --model codellama
 ```
 
-### 4. Use as a library
+### 4. Library Usage
+
+You can also use ShadowCoder programmatically within your own Python tools:
 
 ```python
 from engine import AttackEngine, Reporter
 
+# Initialize the engine
 engine = AttackEngine(model="llama3")
-report = engine.scan(open("myapp.py").read(), filename="myapp.py")
 
+# Scan a specific file
+with open("myapp.py", "r") as f:
+    code = f.read()
+    
+report = engine.scan(code, filename="myapp.py")
+
+# Output the results
 reporter = Reporter()
-reporter.print_report(report)          # terminal
-print(reporter.to_json(report))        # JSON string
-sarif = reporter.to_sarif(report)      # SARIF dict
+reporter.print_report(report)          # Terminal output
+print(reporter.to_json(report))        # JSON format
+sarif = reporter.to_sarif(report)      # SARIF dictionary
 ```
 
 ---
 
-## What It Detects
+## 🛡️ Vulnerabilities Detected
 
 | Vulnerability | Severity | CWE |
 |---|---|---|
-| SQL Injection (concat + f-string) | CRITICAL | CWE-89 |
-| Command Injection (os.system, subprocess) | CRITICAL | CWE-78 |
-| Code Injection (eval, exec) | CRITICAL | CWE-94 |
-| Unsafe Deserialization (pickle, yaml) | CRITICAL | CWE-502 |
-| Hardcoded Credentials / API Keys | CRITICAL | CWE-798 |
-| Path Traversal | HIGH | CWE-22 |
-| SSRF | MEDIUM | CWE-918 |
-| Weak Cryptography (MD5, SHA1) | MEDIUM | CWE-327 |
-| Insecure Random | MEDIUM | CWE-338 |
-
-## Attack Chains Detected
-
-- **SSRF → Cloud Credential Theft** — metadata endpoint → IAM key exfil
-- **SQLi → Password Dump → Account Takeover** — UNION dump → MD5 crack
-- **Path Traversal → Config Leak → Auth Bypass** — .env read → key reuse
-- **RCE → Persistence → Privilege Escalation** — shell → cron → root
-- **Deserialization → RCE Chain** — pickle/yaml → code exec
-- **Weak Crypto → Credential Brute Force** — MD5 dump → hashcat
+| **SQL Injection** (concat + f-string) | CRITICAL | CWE-89 |
+| **Command Injection** (`os.system`, `subprocess`) | CRITICAL | CWE-78 |
+| **Code Injection** (`eval`, `exec`) | CRITICAL | CWE-94 |
+| **Unsafe Deserialization** (`pickle`, `yaml`) | CRITICAL | CWE-502 |
+| **Hardcoded Credentials / API Keys** | CRITICAL | CWE-798 |
+| **Path Traversal** | HIGH | CWE-22 |
+| **SSRF** | MEDIUM | CWE-918 |
+| **Weak Cryptography** (MD5, SHA1) | MEDIUM | CWE-327 |
+| **Insecure Random** | MEDIUM | CWE-338 |
 
 ---
 
-## Running Tests
+## 🧪 Testing
+
+To run the test suite, ensure you have `pytest` installed, then execute:
 
 ```bash
 python -m pytest tests/ -v
-# or
+# OR run the engine tests directly
 python tests/test_engine.py
 ```
 
-Expected: **20 tests, 0 failures**
-
----
-
-## Roadmap
-
-- **V2**: VS Code extension with WebSocket real-time scanning
-- **V2**: FastAPI gateway for multi-language support
-- **V3**: JavaScript/TypeScript analyzer (tree-sitter)
-- **V3**: Attack chain visualization graph
-- **V3**: CI/CD GitHub Actions integration
+*Expected output should show all tests passing successfully.*
 
 ---
 
 ## ⚠️ Legal Notice
 
-This tool is for authorized security testing and educational purposes only.
-Do not use against systems you do not own or have explicit written permission to test.
+**ShadowCoder is built for authorized security testing and educational purposes only.** 
+Do not use this tool against systems you do not own or do not have explicit written permission to test. The developers assume no liability and are not responsible for any misuse or damage caused by this program.

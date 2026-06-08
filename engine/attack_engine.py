@@ -12,6 +12,7 @@ from typing import Optional
 from enum import Enum
 
 from .static_analyzer import StaticAnalyzer, Vulnerability
+from .js_static_analyzer import JsStaticAnalyzer
 from .payload_generator import PayloadGenerator
 from .execution_simulator import ExecutionSimulator
 from .attack_graph import AttackGraphBuilder
@@ -69,6 +70,7 @@ class AttackEngine:
 
     def __init__(self, model: str = "llama3", ollama_url: str = "http://localhost:11434"):
         self.analyzer = StaticAnalyzer()
+        self.js_analyzer = JsStaticAnalyzer()
         self.payload_gen = PayloadGenerator()
         self.simulator = ExecutionSimulator()
         self.graph_builder = AttackGraphBuilder()
@@ -80,16 +82,21 @@ class AttackEngine:
         log.info(f"Starting scan of {filename}")
         t0 = time.perf_counter()
 
-        # ── Stage 0: Parse AST ──────────────────────────────────────────────
-        try:
-            tree = ast.parse(source_code, filename=filename)
-        except SyntaxError as e:
-            log.warning(f"Syntax error in {filename}: {e}")
-            tree = None
+        if filename.endswith(".js"):
+            # ── Stage 1: JS Static Analysis ──────────────────────────────────────────
+            vulns = self.js_analyzer.analyze(source_code)
+            log.info(f"  JS static analyzer found {len(vulns)} vulnerabilities")
+        else:
+            # ── Stage 0: Parse AST ──────────────────────────────────────────────
+            try:
+                tree = ast.parse(source_code, filename=filename)
+            except SyntaxError as e:
+                log.warning(f"Syntax error in {filename}: {e}")
+                tree = None
 
-        # ── Stage 1: Static Analysis ──────────────────────────────────────────
-        vulns = self.analyzer.analyze(source_code, filename, tree=tree)
-        log.info(f"  Static analyzer found {len(vulns)} vulnerabilities")
+            # ── Stage 1: Static Analysis ──────────────────────────────────────────
+            vulns = self.analyzer.analyze(source_code, filename, tree=tree)
+            log.info(f"  Static analyzer found {len(vulns)} vulnerabilities")
 
         if not vulns:
             elapsed = int((time.perf_counter() - t0) * 1000)

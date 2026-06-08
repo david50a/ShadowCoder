@@ -157,8 +157,8 @@ class ExecutionSimulator:
         exploitable = bool(tracker.sink_hits)
 
         # Also mark RCE if vuln type is a known RCE class (eval/exec/pickle)
-        rce_vuln_types = {"Code injection", "Command injection", "Unsafe deserialization"}
-        if vuln.vuln_type in rce_vuln_types:
+        is_rce_type = any(t in vuln.vuln_type.lower() for t in ("code injection", "command injection", "deserialization"))
+        if is_rce_type:
             rce_possible = True
             exploitable = True
 

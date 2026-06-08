@@ -134,10 +134,7 @@ class BillingService:
         Returns {"handled": True, "event_type": ...} or raises ValueError.
         """
         if not STRIPE_AVAILABLE:
-            try:
-                event = json.loads(payload)
-            except Exception:
-                raise ValueError("Invalid payload")
+            raise ValueError("Webhook endpoint is disabled in development/mock mode")
         else:
             try:
                 event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
@@ -223,8 +220,12 @@ class BillingService:
             update_user(user["user_id"], scans_this_month=0)
 
     def _on_payment_failed(self, invoice: dict):
+        from saas.database import update_user, update_subscription
         customer_id = invoice.get("customer")
-        log.warning(f"Payment failed for customer {customer_id} — consider dunning flow")
+        log.warning(f"Payment failed for customer {customer_id} — suspending/downgrading account")
+        for user in _find_users_by_stripe_customer(customer_id):
+            update_user(user["user_id"], plan="free")
+            update_subscription(user["user_id"], plan="free", status="past_due")
 
     def _plan_from_price(self, price_id: Optional[str]) -> str:
         from saas.database import PLANS

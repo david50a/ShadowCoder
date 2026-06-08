@@ -85,57 +85,74 @@ GUIDELINES:
 3. Diversity of vuln types.
 4. COMPLETE CODE must be returned.
 
-OUTPUT FORMAT (JSON):
-{{
-  "new_code": "The full source code goes here",
-  "summary": [
-    {{"vuln_type": "Type", "line": 12, "explanation": "Why it is vulnerable"}},
-    ...
-  ]
-}}
+OUTPUT FORMAT:
+Provide the list of injected vulnerabilities followed by the complete code block. Format exactly as follows:
 
-Return ONLY the JSON object."""
+[VULNERABILITY]
+Type: <vuln_type>
+Line: <line_number>
+Explanation: <why_it_is_vulnerable>
+[/VULNERABILITY]
+
+[CODE]
+```python
+<complete_rewritten_code>
+```
+[/CODE]"""
         result = await self._ask(prompt, max_tokens=2000)
         
-        # Fallback if AI fails JSON
+        # Fallback if AI fails
         default_response = {"new_code": source_code, "summary": []}
         
         if result:
             try:
-                import json
-                # Strip markdown fences if present
-                clean = result.strip()
-                if clean.startswith("```json"):
-                    clean = clean[7:]
-                if clean.endswith("```"):
-                    clean = clean[:-3]
-                clean = clean.strip()
-                
-                data = json.loads(clean)
-                if "new_code" in data:
-                    return data
-            except Exception:
-                # If JSON fails, try to extract code using the old regex logic
                 import re
-                match = re.search(r"```(?:python|py)?\s*\n?(.*?)\n?```", result, re.DOTALL | re.IGNORECASE)
-                if match:
-                    return {"new_code": match.group(1).strip(), "summary": [{"vuln_type": "AI Injection", "line": 0, "explanation": "Vulnerabilities injected but summary failed to parse."}]}
+                summary = []
+                # Parse vulnerabilities
+                vuln_blocks = re.findall(r"\[VULNERABILITY(?:\s+\d+)?\](.*?)\[/VULNERABILITY(?:\s+\d+)?\]", result, re.DOTALL | re.IGNORECASE)
+                for block in vuln_blocks:
+                    vtype_match = re.search(r"Type:\s*(.*)", block, re.IGNORECASE)
+                    line_match = re.search(r"Line:\s*(\d+)", block, re.IGNORECASE)
+                    expl_match = re.search(r"Explanation:\s*(.*)", block, re.IGNORECASE)
+                    if vtype_match and expl_match:
+                        line_no = int(line_match.group(1)) if line_match else 0
+                        summary.append({
+                            "vuln_type": vtype_match.group(1).strip(),
+                            "line": line_no,
+                            "explanation": expl_match.group(1).strip()
+                        })
+                
+                # Parse code block
+                code_match = re.search(r"\[CODE\]\s*```(?:python|py)?\n(.*?)\n```\s*\[/CODE\]", result, re.DOTALL | re.IGNORECASE)
+                if not code_match:
+                    # Fallback to standard python block search
+                    code_match = re.search(r"```(?:python|py)?\n(.*?)\n```", result, re.DOTALL | re.IGNORECASE)
+                
+                if code_match:
+                    new_code = code_match.group(1).strip()
+                    if new_code and new_code != source_code:
+                        return {"new_code": new_code, "summary": summary}
+            except Exception as e:
+                log.warning(f"Failed to parse sabotage output: {e}")
         
         return default_response
 
     async def explain(self, vuln: dict, code_context: str = "") -> str:
         """Human-like, intent-aware explanation with attack simulation."""
-        prompt = f"""Vulnerability: {vuln.get('vuln_type')} ({vuln.get('cwe')})
+        vuln_name = vuln.get('vuln_type') or vuln.get('title') or 'Unknown Vulnerability'
+        cwe_str = f" ({vuln.get('cwe')})" if vuln.get('cwe') else ""
+        prompt = f"""Vulnerability: {vuln_name}{cwe_str}
 Severity: {vuln.get('severity')}
-Line: {vuln.get('line')}
-Code snippet:
+Line: {vuln.get('line', 'N/A')}
+Endpoint: {vuln.get('endpoint', 'N/A')}
+Code snippet / Description:
 ```python
-{vuln.get('code_snippet', '')}
+{vuln.get('code_snippet') or vuln.get('description', '')}
 ```
 {f'Surrounding context:{chr(10)}{code_context}' if code_context else ''}
 
 Provide a response in this exact structure:
-1. 🚨 The Vulnerability: Explain it like a human. Why did the developer make this mistake? Assess intent (e.g., is this likely debug code?).
+1. 🚨 The Vulnerability: Explain it like a human. Why did the developer make this mistake? Assess intent.
 2. 💀 Attack Simulation: Provide a realistic example payload the attacker would send based on the context.
 3. 💥 The Impact: What happens? (e.g., "The attacker gains remote command execution").
 4. 📚 Mentor Note: Briefly relate this to real-world attacks and its OWASP category."""
@@ -144,17 +161,18 @@ Provide a response in this exact structure:
 
     async def fix(self, vuln: dict, source_code: str = "") -> str:
         """Secure code generation and teaching."""
-        prompt = f"""Vulnerability: {vuln.get('vuln_type')} at line {vuln.get('line')}
+        vuln_name = vuln.get('vuln_type') or vuln.get('title') or 'Unknown Vulnerability'
+        prompt = f"""Vulnerability: {vuln_name} at endpoint/line {vuln.get('endpoint') or vuln.get('line')}
 Severity: {vuln.get('severity')}
 
-Vulnerable code:
+Vulnerable context:
 ```python
-{vuln.get('code_snippet', '')}
+{vuln.get('code_snippet') or vuln.get('description', '')}
 ```
 
 Provide a response in this structure:
-1. 🛠️ The Fix: Provide the EXACT, complete secure rewrite (e.g., parameterized queries instead of f-strings, safe YAML loaders).
-2. 🛡️ Why it works: Explain briefly how this specific code prevents the simulated attack payload."""
+1. 🛠️ The Fix: Provide the EXACT, complete secure rewrite or remediation configuration steps.
+2. 🛡️ Why it works: Explain briefly how this prevents the simulated attack payload."""
         result = await self._ask(prompt, max_tokens=500)
         return result or _fallback_fix(vuln)
 
@@ -244,6 +262,48 @@ Be direct. No hedging."""
         finding["ai_fix"] = await self.fix(vuln)
         return finding
 
+    async def mv_vector_narrative(self, vector_type: str, findings_summary: str, attack_paths: list[str]) -> str:
+        """Provide a 2-3 sentence AI narrative about what a vector found and why it matters."""
+        paths_str = "\n".join(f"- {p}" for p in attack_paths)
+        prompt = f"""Attack Vector: {vector_type}
+Findings summary: {findings_summary}
+Attack paths simulated:
+{paths_str}
+
+Provide a 2-3 sentence executive narrative explaining the real-world security significance of these findings. Be concise, direct, and realistic."""
+        result = await self._ask(prompt, max_tokens=250)
+        return result or _fallback_mv_vector_narrative(vector_type, findings_summary, attack_paths)
+
+    async def mv_graph_summary(self, total_vulns: int, exploitable: int, overall_sev: str, top_chains: list[str]) -> str:
+        """Provide a 3-sentence executive risk verdict synthesizing all findings."""
+        chains_str = "\n".join(f"- {c}" for c in top_chains)
+        prompt = f"""Application security profile:
+- Total vulnerabilities: {total_vulns}
+- Exploitable findings: {exploitable}
+- Overall Severity: {overall_sev}
+- Key attack pathways:
+{chains_str}
+
+Write a 3-sentence executive risk verdict synthesizing all findings:
+1. Overall risk rating (e.g. Critical, High) and why.
+2. The most dangerous attack sequence (chain) from entry to execution.
+3. Top remediation advice."""
+        result = await self._ask(prompt, max_tokens=300)
+        return result or _fallback_mv_graph_summary(total_vulns, exploitable, overall_sev, top_chains)
+
+    async def mv_path_fix(self, path_title: str, steps: list[str], impact: str) -> str:
+        """Provide a concise AI fix recommendation for an attack path."""
+        steps_str = "\n".join(f"- {s}" for s in steps)
+        prompt = f"""Attack Path: {path_title}
+Impact: {impact}
+Exploit steps:
+{steps_str}
+
+Provide a concise, 1-2 sentence secure-coding remediation recommendation specifically addressing this attack path. Avoid generic advice; specify the exact mechanism to use."""
+        result = await self._ask(prompt, max_tokens=250)
+        return result or _fallback_mv_path_fix(path_title, steps, impact)
+
+
 
 # ── Sync wrapper for non-async contexts ───────────────────────────────────────
 
@@ -274,6 +334,40 @@ class AIServiceSync:
             return {"new_code": source_code, "summary": []}
         finally:
             loop.close()
+
+    def mv_vector_narrative(self, vector_type: str, findings_summary: str, attack_paths: list[str]) -> str:
+        if not self._service.is_available:
+            return _fallback_mv_vector_narrative(vector_type, findings_summary, attack_paths)
+        try:
+            loop = asyncio.new_event_loop()
+            return loop.run_until_complete(self._service.mv_vector_narrative(vector_type, findings_summary, attack_paths))
+        except Exception:
+            return _fallback_mv_vector_narrative(vector_type, findings_summary, attack_paths)
+        finally:
+            loop.close()
+
+    def mv_graph_summary(self, total_vulns: int, exploitable: int, overall_sev: str, top_chains: list[str]) -> str:
+        if not self._service.is_available:
+            return _fallback_mv_graph_summary(total_vulns, exploitable, overall_sev, top_chains)
+        try:
+            loop = asyncio.new_event_loop()
+            return loop.run_until_complete(self._service.mv_graph_summary(total_vulns, exploitable, overall_sev, top_chains))
+        except Exception:
+            return _fallback_mv_graph_summary(total_vulns, exploitable, overall_sev, top_chains)
+        finally:
+            loop.close()
+
+    def mv_path_fix(self, path_title: str, steps: list[str], impact: str) -> str:
+        if not self._service.is_available:
+            return _fallback_mv_path_fix(path_title, steps, impact)
+        try:
+            loop = asyncio.new_event_loop()
+            return loop.run_until_complete(self._service.mv_path_fix(path_title, steps, impact))
+        except Exception:
+            return _fallback_mv_path_fix(path_title, steps, impact)
+        finally:
+            loop.close()
+
 
 
 # ── Static fallbacks (no API key needed) ─────────────────────────────────────
@@ -316,3 +410,27 @@ def _fallback_triage(findings: list[dict]) -> list[dict]:
         {"rank": i+1, "vuln_type": f["vulnerability"]["vuln_type"], "reason": f["vulnerability"]["description"][:80], "priority": priority_map.get(f["severity"], "MEDIUM")}
         for i, f in enumerate(sorted_findings[:10])
     ]
+
+def _fallback_mv_vector_narrative(vector_type: str, findings_summary: str, attack_paths: list[str]) -> str:
+    if not findings_summary and not attack_paths:
+        return f"No significant vulnerabilities were identified within the {vector_type} attack surface."
+    return f"The {vector_type} scan detected vulnerability patterns: {findings_summary or 'potential flaws'}. Attackers could exploit these pathways ({', '.join(attack_paths[:2])}) to target system endpoints."
+
+def _fallback_mv_graph_summary(total_vulns: int, exploitable: int, overall_sev: str, top_chains: list[str]) -> str:
+    chains_desc = f" ({len(top_chains)} chains mapped)" if top_chains else ""
+    return f"Security posture is rated as {overall_sev} with {total_vulns} findings ({exploitable} exploitable){chains_desc}. Immediate review of identified entry points and configuration files is recommended. Focus remediation on patching input validation and access controls."
+
+def _fallback_mv_path_fix(path_title: str, steps: list[str], impact: str) -> str:
+    title_lower = path_title.lower()
+    if "sql" in title_lower:
+        return "Implement strictly parameterized database queries or use a secure ORM to prevent malicious SQL command insertion."
+    elif "command" in title_lower or "os.system" in title_lower:
+        return "Avoid running commands via OS shell. Use subprocess with argument lists instead of shell=True, and sanitize inputs."
+    elif "pickle" in title_lower or "deserialization" in title_lower:
+        return "Avoid deserializing untrusted data with pickle. Use safer serialization formats such as JSON or Protocol Buffers."
+    elif "xss" in title_lower:
+        return "Sanitize and escape all user inputs before rendering them in HTML templates or API responses."
+    elif "auth" in title_lower or "session" in title_lower:
+        return "Enforce strong server-side authentication, validate all JWT tokens, and verify user permissions before processing requests."
+    return f"Remediate the entry point step in the {path_title} flow to break the exploit chain and secure the downstream functions."
+

@@ -7,14 +7,71 @@
       "password_hash": "$2b$12$paRvGQCaL/uNDw6dzEYCbOqB6JZgTTUnig42/uMOpFivNTLreHu3.",
       "plan": "team",
       "created_at": "2026-05-28T15:10:17.854703+00:00",
-      "last_login": "2026-05-31T11:46:16.217100+00:00",
+      "last_login": "2026-06-03T15:10:18.953770+00:00",
       "email_verified": false,
       "avatar_url": "https://api.dicebear.com/7.x/shapes/svg?seed=5d4d0cb4ac0b4fd8a3e76381e41cf5a2",
       "stripe_customer_id": null,
-      "scans_this_month": 3,
+      "scans_this_month": 7,
       "month_reset_at": "2026-05-28T15:10:17.854703+00:00"
     },
-    "email:demo@shadowcoder.dev": "5d4d0cb4ac0b4fd8a3e76381e41cf5a2"
+    "email:demo@shadowcoder.dev": "5d4d0cb4ac0b4fd8a3e76381e41cf5a2",
+    "9cb90e4f591848f292c5c25b1c354570": {
+      "user_id": "9cb90e4f591848f292c5c25b1c354570",
+      "email": "billing-test@example.com",
+      "name": "Billing Test User",
+      "password_hash": "mock_hash",
+      "plan": "free",
+      "created_at": "2026-06-02T15:08:59.728042+00:00",
+      "last_login": null,
+      "email_verified": false,
+      "avatar_url": "https://api.dicebear.com/7.x/shapes/svg?seed=9cb90e4f591848f292c5c25b1c354570",
+      "stripe_customer_id": "cus_test_12345",
+      "scans_this_month": 0,
+      "month_reset_at": "2026-06-02T15:08:59.730042+00:00"
+    },
+    "email:billing-test@example.com": "8ab073e5b8524d709151ea578bfdbeac",
+    "c4816878779d4048885a5faab274cbfe": {
+      "user_id": "c4816878779d4048885a5faab274cbfe",
+      "email": "billing-test@example.com",
+      "name": "Billing Test User",
+      "password_hash": "mock_hash",
+      "plan": "free",
+      "created_at": "2026-06-02T15:08:59.731872+00:00",
+      "last_login": null,
+      "email_verified": false,
+      "avatar_url": "https://api.dicebear.com/7.x/shapes/svg?seed=c4816878779d4048885a5faab274cbfe",
+      "stripe_customer_id": "cus_test_12345",
+      "scans_this_month": 0,
+      "month_reset_at": "2026-06-02T15:08:59.731872+00:00"
+    },
+    "9b636a06f6174d91af9b42d198cf9d22": {
+      "user_id": "9b636a06f6174d91af9b42d198cf9d22",
+      "email": "billing-test@example.com",
+      "name": "Billing Test User",
+      "password_hash": "mock_hash",
+      "plan": "free",
+      "created_at": "2026-06-02T15:09:05.906646+00:00",
+      "last_login": null,
+      "email_verified": false,
+      "avatar_url": "https://api.dicebear.com/7.x/shapes/svg?seed=9b636a06f6174d91af9b42d198cf9d22",
+      "stripe_customer_id": "cus_test_12345",
+      "scans_this_month": 0,
+      "month_reset_at": "2026-06-02T15:09:05.906646+00:00"
+    },
+    "8ab073e5b8524d709151ea578bfdbeac": {
+      "user_id": "8ab073e5b8524d709151ea578bfdbeac",
+      "email": "billing-test@example.com",
+      "name": "Billing Test User",
+      "password_hash": "mock_hash",
+      "plan": "pro",
+      "created_at": "2026-06-02T15:09:05.910581+00:00",
+      "last_login": null,
+      "email_verified": false,
+      "avatar_url": "https://api.dicebear.com/7.x/shapes/svg?seed=8ab073e5b8524d709151ea578bfdbeac",
+      "stripe_customer_id": "cus_test_12345",
+      "scans_this_month": 0,
+      "month_reset_at": "2026-06-02T15:09:05.910581+00:00"
+    }
   },
   "api_keys": {},
   "subs": {
@@ -27,6 +84,46 @@
       "current_period_end": null,
       "cancel_at_period_end": false,
       "created_at": "2026-05-28T15:10:17.854703+00:00"
+    },
+    "9cb90e4f591848f292c5c25b1c354570": {
+      "user_id": "9cb90e4f591848f292c5c25b1c354570",
+      "plan": "free",
+      "status": "past_due",
+      "stripe_subscription_id": null,
+      "current_period_start": "2026-06-02T15:08:59.730042+00:00",
+      "current_period_end": null,
+      "cancel_at_period_end": false,
+      "created_at": "2026-06-02T15:08:59.730042+00:00"
+    },
+    "c4816878779d4048885a5faab274cbfe": {
+      "user_id": "c4816878779d4048885a5faab274cbfe",
+      "plan": "free",
+      "status": "past_due",
+      "stripe_subscription_id": null,
+      "current_period_start": "2026-06-02T15:08:59.731872+00:00",
+      "current_period_end": null,
+      "cancel_at_period_end": false,
+      "created_at": "2026-06-02T15:08:59.731872+00:00"
+    },
+    "9b636a06f6174d91af9b42d198cf9d22": {
+      "user_id": "9b636a06f6174d91af9b42d198cf9d22",
+      "plan": "free",
+      "status": "past_due",
+      "stripe_subscription_id": null,
+      "current_period_start": "2026-06-02T15:09:05.906646+00:00",
+      "current_period_end": null,
+      "cancel_at_period_end": false,
+      "created_at": "2026-06-02T15:09:05.906646+00:00"
+    },
+    "8ab073e5b8524d709151ea578bfdbeac": {
+      "user_id": "8ab073e5b8524d709151ea578bfdbeac",
+      "plan": "pro",
+      "status": "active",
+      "stripe_subscription_id": null,
+      "current_period_start": "2026-06-02T15:09:05.910581+00:00",
+      "current_period_end": null,
+      "cancel_at_period_end": false,
+      "created_at": "2026-06-02T15:09:05.910581+00:00"
     }
   },
   "scans": [
@@ -79,6 +176,74 @@
         "LOW": 0
       },
       "scanned_at": "2026-05-31T10:23:58.828614+00:00"
+    },
+    {
+      "scan_id": "65ee5f5c3c4945a49bd63f81e73976d7",
+      "user_id": "5d4d0cb4ac0b4fd8a3e76381e41cf5a2",
+      "filename": "editor.py",
+      "source_code": "# ShadowCoder v2 \u2014 Paste vulnerable Python code below\n# Phases 3-6: Real-time WebSocket scan, AI enrichment, project analysis\n\nimport os, sqlite3, subprocess, pickle, yaml, hashlib, random, requests\nfrom jinja2 import Template\n\ndef ping_server(ip_address):\n    \"\"\"VULNERABLE: Command Injection\"\"\"\n    os.system(f\"ping -c 1 {ip_address} {user_input} {user_input}\")\n\ndef get_user(user_id):\n    \"\"\"VULNERABLE: SQL Injection\"\"\"\n    conn = sqlite3.connect('db.sqlite3')\n    cursor = conn.cursor()\n    cursor.execute(\"SELECT * FROM users WHERE id = \" + user_id)\n    return cursor.fetchone()\n\ndef load_config(data):\n    \"\"\"VULNERABLE: Unsafe Deserialization\"\"\"\n    return pickle.loads(data)\n\ndef render_page(template_str):\n    \"\"\"VULNERABLE: Server-Side Template Injection\"\"\"\n    return Template(template_str).render()\n\ndef hash_pwd(password):\n    \"\"\"VULNERABLE: Weak Cryptography\"\"\"\n    return hashlib.md5(password.encode()).hexdigest()\n\ndef gen_token():\n    \"\"\"VULNERABLE: Insecure Randomness\"\"\"\n    return random.randint(100000, 999999)\n\ndef fetch_url(user_url):\n    \"\"\"VULNERABLE: SSRF\"\"\"\n    return requests.get(user_url, verify=False)\n\nSECRET_KEY = \"hardcoded-secret-do-not-commit\"\nDB_PASS = \"admin123\"",
+      "vulnerabilities_found": 12,
+      "exploitable_count": 12,
+      "chains_found": 16,
+      "scan_time_ms": 150894,
+      "severity_breakdown": {
+        "CRITICAL": 4,
+        "HIGH": 4,
+        "MEDIUM": 4,
+        "LOW": 0
+      },
+      "scanned_at": "2026-06-02T16:11:42.083356+00:00"
+    },
+    {
+      "scan_id": "7300962a5f5a49cba0f341cad3704350",
+      "user_id": "5d4d0cb4ac0b4fd8a3e76381e41cf5a2",
+      "filename": "editor.py",
+      "source_code": "# ShadowCoder v2 \u2014 Paste vulnerable Python code below\n# Phases 3-6: Real-time WebSocket scan, AI enrichment, project analysis\n\nimport os, sqlite3, subprocess, pickle, yaml, hashlib, random, requests\nfrom jinja2 import Template\n\ndef ping_server(ip_address):\n    \"\"\"VULNERABLE: Command Injection\"\"\"\n    os.system(f\"ping -c 1 {ip_address}\")\n\ndef get_user(user_id):\n    \"\"\"VULNERABLE: SQL Injection\"\"\"\n    conn = sqlite3.connect('db.sqlite3')\n    cursor = conn.cursor()\n    cursor.execute(\"SELECT * FROM users WHERE id = \" + user_id)\n    return cursor.fetchone()\n\ndef load_config(data):\n    \"\"\"VULNERABLE: Unsafe Deserialization\"\"\"\n    return pickle.loads(data)\n\ndef render_page(template_str):\n    \"\"\"VULNERABLE: Server-Side Template Injection\"\"\"\n    return Template(template_str).render()\n\ndef hash_pwd(password):\n    \"\"\"VULNERABLE: Weak Cryptography\"\"\"\n    return hashlib.md5(password.encode()).hexdigest()\n\ndef gen_token():\n    \"\"\"VULNERABLE: Insecure Randomness\"\"\"\n    return random.randint(100000, 999999)\n\ndef fetch_url(user_url):\n    \"\"\"VULNERABLE: SSRF\"\"\"\n    return requests.get(user_url)\n\nSECRET_KEY = \"hardcoded-secret-do-not-commit\"\nDB_PASS = \"admin123\"",
+      "vulnerabilities_found": 10,
+      "exploitable_count": 10,
+      "chains_found": 14,
+      "scan_time_ms": 127237,
+      "severity_breakdown": {
+        "CRITICAL": 4,
+        "HIGH": 2,
+        "MEDIUM": 4,
+        "LOW": 0
+      },
+      "scanned_at": "2026-06-03T15:14:34.854604+00:00"
+    },
+    {
+      "scan_id": "309d87eca54943e1bdfeb30c58c2da62",
+      "user_id": "5d4d0cb4ac0b4fd8a3e76381e41cf5a2",
+      "filename": "editor.py",
+      "source_code": "# ShadowCoder v2 \u2014 Paste vulnerable Python code below\n# Phases 3-6: Real-time WebSocket scan, AI enrichment, project analysis\n\nimport os, sqlite3, subprocess, pickle, yaml, hashlib, random, requests\nfrom jinja2 import Template\n\ndef ping_server(ip_address):\n    \"\"\"VULNERABLE: Command Injection\"\"\"\n    os.system(f\"ping -c 1 {ip_address}\")\n\ndef get_user(user_id):\n    \"\"\"VULNERABLE: SQL Injection\"\"\"\n    conn = sqlite3.connect('db.sqlite3')\n    cursor = conn.cursor()\n    cursor.execute(\"SELECT * FROM users WHERE id = \" + user_id)\n    return cursor.fetchone()\n\ndef load_config(data):\n    \"\"\"VULNERABLE: Unsafe Deserialization\"\"\"\n    return pickle.loads(data)\n\ndef render_page(template_str):\n    \"\"\"VULNERABLE: Server-Side Template Injection\"\"\"\n    return Template(template_str).render()\n\ndef hash_pwd(password):\n    \"\"\"VULNERABLE: Weak Cryptography\"\"\"\n    return hashlib.md5(password.encode()).hexdigest()\n\ndef gen_token():\n    \"\"\"VULNERABLE: Insecure Randomness\"\"\"\n    return random.randint(100000, 999999)\n\ndef fetch_url(user_url):\n    \"\"\"VULNERABLE: SSRF\"\"\"\n    return requests.get(user_url)\n\nSECRET_KEY = \"hardcoded-secret-do-not-commit\"\nDB_PASS = \"admin123\"",
+      "vulnerabilities_found": 10,
+      "exploitable_count": 10,
+      "chains_found": 14,
+      "scan_time_ms": 167844,
+      "severity_breakdown": {
+        "CRITICAL": 4,
+        "HIGH": 2,
+        "MEDIUM": 4,
+        "LOW": 0
+      },
+      "scanned_at": "2026-06-03T15:28:51.359471+00:00"
+    },
+    {
+      "scan_id": "c7c69c2a8f8a43dbae2da2a58bc5e35f",
+      "user_id": "5d4d0cb4ac0b4fd8a3e76381e41cf5a2",
+      "filename": "editor.py",
+      "source_code": "# ShadowCoder v2 \u2014 Paste vulnerable Python code below\n# Phases 3-6: Real-time WebSocket scan, AI enrichment, project analysis\n\nimport os, sqlite3, subprocess, pickle, yaml, hashlib, random, requests\nfrom jinja2 import Template\n\ndef ping_server(ip_address):\n    \"\"\"VULNERABLE: Command Injection\"\"\"\n    os.system(f\"ping -c 1 {ip_address} {user_input}\")\n\ndef get_user(user_id):\n    \"\"\"VULNERABLE: SQL Injection\"\"\"\n    conn = sqlite3.connect('db.sqlite3')\n    cursor = conn.cursor()\n    cursor.execute(\"SELECT * FROM users WHERE id = \" + user_id)\n    return cursor.fetchone()\n\ndef load_config(data):\n    \"\"\"VULNERABLE: Unsafe Deserialization\"\"\"\n    return pickle.loads(data)\n\ndef render_page(template_str):\n    \"\"\"VULNERABLE: Server-Side Template Injection\"\"\"\n    return Template(template_str).render()\n\ndef hash_pwd(password):\n    \"\"\"VULNERABLE: Weak Cryptography\"\"\"\n    return hashlib.md5(password.encode()).hexdigest()\n\ndef gen_token():\n    \"\"\"VULNERABLE: Insecure Randomness\"\"\"\n    return random.randint(100000, 999999)\n\ndef fetch_url(user_url):\n    \"\"\"VULNERABLE: SSRF\"\"\"\n    return requests.get(user_url, verify=False)\n\nSECRET_KEY = \"hardcoded-secret-do-not-commit\"\nDB_PASS = \"admin123\"",
+      "vulnerabilities_found": 12,
+      "exploitable_count": 12,
+      "chains_found": 16,
+      "scan_time_ms": 191384,
+      "severity_breakdown": {
+        "CRITICAL": 4,
+        "HIGH": 4,
+        "MEDIUM": 4,
+        "LOW": 0
+      },
+      "scanned_at": "2026-06-03T15:29:50.658589+00:00"
     }
   ],
   "usage": {
@@ -138,6 +303,82 @@
           "LOW": 0
         },
         "scanned_at": "2026-05-31T10:23:58.828614+00:00"
+      },
+      {
+        "type": "scan",
+        "ts": "2026-06-02T16:11:42.083356+00:00",
+        "scan_id": "65ee5f5c3c4945a49bd63f81e73976d7",
+        "user_id": "5d4d0cb4ac0b4fd8a3e76381e41cf5a2",
+        "filename": "editor.py",
+        "source_code": "# ShadowCoder v2 \u2014 Paste vulnerable Python code below\n# Phases 3-6: Real-time WebSocket scan, AI enrichment, project analysis\n\nimport os, sqlite3, subprocess, pickle, yaml, hashlib, random, requests\nfrom jinja2 import Template\n\ndef ping_server(ip_address):\n    \"\"\"VULNERABLE: Command Injection\"\"\"\n    os.system(f\"ping -c 1 {ip_address} {user_input} {user_input}\")\n\ndef get_user(user_id):\n    \"\"\"VULNERABLE: SQL Injection\"\"\"\n    conn = sqlite3.connect('db.sqlite3')\n    cursor = conn.cursor()\n    cursor.execute(\"SELECT * FROM users WHERE id = \" + user_id)\n    return cursor.fetchone()\n\ndef load_config(data):\n    \"\"\"VULNERABLE: Unsafe Deserialization\"\"\"\n    return pickle.loads(data)\n\ndef render_page(template_str):\n    \"\"\"VULNERABLE: Server-Side Template Injection\"\"\"\n    return Template(template_str).render()\n\ndef hash_pwd(password):\n    \"\"\"VULNERABLE: Weak Cryptography\"\"\"\n    return hashlib.md5(password.encode()).hexdigest()\n\ndef gen_token():\n    \"\"\"VULNERABLE: Insecure Randomness\"\"\"\n    return random.randint(100000, 999999)\n\ndef fetch_url(user_url):\n    \"\"\"VULNERABLE: SSRF\"\"\"\n    return requests.get(user_url, verify=False)\n\nSECRET_KEY = \"hardcoded-secret-do-not-commit\"\nDB_PASS = \"admin123\"",
+        "vulnerabilities_found": 12,
+        "exploitable_count": 12,
+        "chains_found": 16,
+        "scan_time_ms": 150894,
+        "severity_breakdown": {
+          "CRITICAL": 4,
+          "HIGH": 4,
+          "MEDIUM": 4,
+          "LOW": 0
+        },
+        "scanned_at": "2026-06-02T16:11:42.083356+00:00"
+      },
+      {
+        "type": "scan",
+        "ts": "2026-06-03T15:14:34.854604+00:00",
+        "scan_id": "7300962a5f5a49cba0f341cad3704350",
+        "user_id": "5d4d0cb4ac0b4fd8a3e76381e41cf5a2",
+        "filename": "editor.py",
+        "source_code": "# ShadowCoder v2 \u2014 Paste vulnerable Python code below\n# Phases 3-6: Real-time WebSocket scan, AI enrichment, project analysis\n\nimport os, sqlite3, subprocess, pickle, yaml, hashlib, random, requests\nfrom jinja2 import Template\n\ndef ping_server(ip_address):\n    \"\"\"VULNERABLE: Command Injection\"\"\"\n    os.system(f\"ping -c 1 {ip_address}\")\n\ndef get_user(user_id):\n    \"\"\"VULNERABLE: SQL Injection\"\"\"\n    conn = sqlite3.connect('db.sqlite3')\n    cursor = conn.cursor()\n    cursor.execute(\"SELECT * FROM users WHERE id = \" + user_id)\n    return cursor.fetchone()\n\ndef load_config(data):\n    \"\"\"VULNERABLE: Unsafe Deserialization\"\"\"\n    return pickle.loads(data)\n\ndef render_page(template_str):\n    \"\"\"VULNERABLE: Server-Side Template Injection\"\"\"\n    return Template(template_str).render()\n\ndef hash_pwd(password):\n    \"\"\"VULNERABLE: Weak Cryptography\"\"\"\n    return hashlib.md5(password.encode()).hexdigest()\n\ndef gen_token():\n    \"\"\"VULNERABLE: Insecure Randomness\"\"\"\n    return random.randint(100000, 999999)\n\ndef fetch_url(user_url):\n    \"\"\"VULNERABLE: SSRF\"\"\"\n    return requests.get(user_url)\n\nSECRET_KEY = \"hardcoded-secret-do-not-commit\"\nDB_PASS = \"admin123\"",
+        "vulnerabilities_found": 10,
+        "exploitable_count": 10,
+        "chains_found": 14,
+        "scan_time_ms": 127237,
+        "severity_breakdown": {
+          "CRITICAL": 4,
+          "HIGH": 2,
+          "MEDIUM": 4,
+          "LOW": 0
+        },
+        "scanned_at": "2026-06-03T15:14:34.854604+00:00"
+      },
+      {
+        "type": "scan",
+        "ts": "2026-06-03T15:28:51.359471+00:00",
+        "scan_id": "309d87eca54943e1bdfeb30c58c2da62",
+        "user_id": "5d4d0cb4ac0b4fd8a3e76381e41cf5a2",
+        "filename": "editor.py",
+        "source_code": "# ShadowCoder v2 \u2014 Paste vulnerable Python code below\n# Phases 3-6: Real-time WebSocket scan, AI enrichment, project analysis\n\nimport os, sqlite3, subprocess, pickle, yaml, hashlib, random, requests\nfrom jinja2 import Template\n\ndef ping_server(ip_address):\n    \"\"\"VULNERABLE: Command Injection\"\"\"\n    os.system(f\"ping -c 1 {ip_address}\")\n\ndef get_user(user_id):\n    \"\"\"VULNERABLE: SQL Injection\"\"\"\n    conn = sqlite3.connect('db.sqlite3')\n    cursor = conn.cursor()\n    cursor.execute(\"SELECT * FROM users WHERE id = \" + user_id)\n    return cursor.fetchone()\n\ndef load_config(data):\n    \"\"\"VULNERABLE: Unsafe Deserialization\"\"\"\n    return pickle.loads(data)\n\ndef render_page(template_str):\n    \"\"\"VULNERABLE: Server-Side Template Injection\"\"\"\n    return Template(template_str).render()\n\ndef hash_pwd(password):\n    \"\"\"VULNERABLE: Weak Cryptography\"\"\"\n    return hashlib.md5(password.encode()).hexdigest()\n\ndef gen_token():\n    \"\"\"VULNERABLE: Insecure Randomness\"\"\"\n    return random.randint(100000, 999999)\n\ndef fetch_url(user_url):\n    \"\"\"VULNERABLE: SSRF\"\"\"\n    return requests.get(user_url)\n\nSECRET_KEY = \"hardcoded-secret-do-not-commit\"\nDB_PASS = \"admin123\"",
+        "vulnerabilities_found": 10,
+        "exploitable_count": 10,
+        "chains_found": 14,
+        "scan_time_ms": 167844,
+        "severity_breakdown": {
+          "CRITICAL": 4,
+          "HIGH": 2,
+          "MEDIUM": 4,
+          "LOW": 0
+        },
+        "scanned_at": "2026-06-03T15:28:51.359471+00:00"
+      },
+      {
+        "type": "scan",
+        "ts": "2026-06-03T15:29:50.658589+00:00",
+        "scan_id": "c7c69c2a8f8a43dbae2da2a58bc5e35f",
+        "user_id": "5d4d0cb4ac0b4fd8a3e76381e41cf5a2",
+        "filename": "editor.py",
+        "source_code": "# ShadowCoder v2 \u2014 Paste vulnerable Python code below\n# Phases 3-6: Real-time WebSocket scan, AI enrichment, project analysis\n\nimport os, sqlite3, subprocess, pickle, yaml, hashlib, random, requests\nfrom jinja2 import Template\n\ndef ping_server(ip_address):\n    \"\"\"VULNERABLE: Command Injection\"\"\"\n    os.system(f\"ping -c 1 {ip_address} {user_input}\")\n\ndef get_user(user_id):\n    \"\"\"VULNERABLE: SQL Injection\"\"\"\n    conn = sqlite3.connect('db.sqlite3')\n    cursor = conn.cursor()\n    cursor.execute(\"SELECT * FROM users WHERE id = \" + user_id)\n    return cursor.fetchone()\n\ndef load_config(data):\n    \"\"\"VULNERABLE: Unsafe Deserialization\"\"\"\n    return pickle.loads(data)\n\ndef render_page(template_str):\n    \"\"\"VULNERABLE: Server-Side Template Injection\"\"\"\n    return Template(template_str).render()\n\ndef hash_pwd(password):\n    \"\"\"VULNERABLE: Weak Cryptography\"\"\"\n    return hashlib.md5(password.encode()).hexdigest()\n\ndef gen_token():\n    \"\"\"VULNERABLE: Insecure Randomness\"\"\"\n    return random.randint(100000, 999999)\n\ndef fetch_url(user_url):\n    \"\"\"VULNERABLE: SSRF\"\"\"\n    return requests.get(user_url, verify=False)\n\nSECRET_KEY = \"hardcoded-secret-do-not-commit\"\nDB_PASS = \"admin123\"",
+        "vulnerabilities_found": 12,
+        "exploitable_count": 12,
+        "chains_found": 16,
+        "scan_time_ms": 191384,
+        "severity_breakdown": {
+          "CRITICAL": 4,
+          "HIGH": 4,
+          "MEDIUM": 4,
+          "LOW": 0
+        },
+        "scanned_at": "2026-06-03T15:29:50.658589+00:00"
       }
     ]
   },
