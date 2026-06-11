@@ -1,0 +1,55 @@
+{
+  "target_url": "http://127.0.0.1:8001",
+  "target_file": "C:\\Users\\meir\\Documents\\pyhton\\ShadowCoder\\test_target.py",
+  "scanned_at": "2026-06-11T12:56:55",
+  "vulnerabilities_found": 4,
+  "exploitable_count": 4,
+  "attack_chains": 2,
+  "live_probes": [
+    {
+      "label": "SQLi \u2014 auth bypass",
+      "confirmed": true,
+      "status": 200
+    },
+    {
+      "label": "SQLi \u2014 UNION dump",
+      "confirmed": true,
+      "status": 200
+    },
+    {
+      "label": "CMDi \u2014 basic",
+      "confirmed": true,
+      "status": 200
+    },
+    {
+      "label": "CMDi \u2014 dir listing",
+      "confirmed": true,
+      "status": 200
+    },
+    {
+      "label": "SSRF \u2014 localhost self",
+      "confirmed": true,
+      "status": 200
+    },
+    {
+      "label": "SSRF \u2014 internal /etc/passwd via file://",
+      "confirmed": true,
+      "status": 200
+    },
+    {
+      "label": "Normal login \u2014 valid",
+      "confirmed": true,
+      "status": 200
+    }
+  ],
+  "discovery": {
+    "pages": [],
+    "forms": [
+      "/login",
+      "/ping/exec"
+    ],
+    "auth_pages": [
+      "/login"
+    ]
+  }
+}
